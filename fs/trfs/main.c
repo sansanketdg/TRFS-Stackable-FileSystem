@@ -140,7 +140,7 @@ MODULE_ALIAS_FS(TRFS_NAME);
 static int __init init_trfs_fs(void)
 {
 	int err;
-
+	
 	pr_info("Registering trfs " TRFS_VERSION "\n");
 
 	err = trfs_init_inode_cache();
@@ -168,7 +168,7 @@ static void __exit exit_trfs_fs(void)
 
 MODULE_AUTHOR("Erez Zadok, Filesystems and Storage Lab, Stony Brook University"
 	      " (http://www.fsl.cs.sunysb.edu/)");
-MODULE_DESCRIPTION("Wrapfs " TRFS_VERSION
+MODULE_DESCRIPTION("Trfs " TRFS_VERSION
 		   " (http://trfs.filesystems.org/)");
 MODULE_LICENSE("GPL");
 

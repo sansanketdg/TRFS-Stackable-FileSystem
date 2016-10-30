@@ -102,7 +102,7 @@ static inline struct trfs_inode_info *TRFS_I(const struct inode *inode)
 
 /* superblock to private data */
 #define TRFS_SB(super) ((struct trfs_sb_info *)(super)->s_fs_info)
-:
+
 /* file to private Data */
 #define TRFS_F(file) ((struct trfs_file_info *)((file)->private_data))
 
