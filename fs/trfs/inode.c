@@ -9,9 +9,9 @@
  * published by the Free Software Foundation.
  */
 
-#include "wrapfs.h"
+#include "trfs.h"
 
-static int wrapfs_create(struct inode *dir, struct dentry *dentry,
+static int trfs_create(struct inode *dir, struct dentry *dentry,
 			 umode_t mode, bool want_excl)
 {
 	int err;
@@ -19,7 +19,7 @@ static int wrapfs_create(struct inode *dir, struct dentry *dentry,
 	struct dentry *lower_parent_dentry = NULL;
 	struct path lower_path;
 
-	wrapfs_get_lower_path(dentry, &lower_path);
+	trfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
 	lower_parent_dentry = lock_parent(lower_dentry);
 
@@ -27,19 +27,19 @@ static int wrapfs_create(struct inode *dir, struct dentry *dentry,
 			 want_excl);
 	if (err)
 		goto out;
-	err = wrapfs_interpose(dentry, dir->i_sb, &lower_path);
+	err = trfs_interpose(dentry, dir->i_sb, &lower_path);
 	if (err)
 		goto out;
-	fsstack_copy_attr_times(dir, wrapfs_lower_inode(dir));
+	fsstack_copy_attr_times(dir, trfs_lower_inode(dir));
 	fsstack_copy_inode_size(dir, d_inode(lower_parent_dentry));
 
 out:
 	unlock_dir(lower_parent_dentry);
-	wrapfs_put_lower_path(dentry, &lower_path);
+	trfs_put_lower_path(dentry, &lower_path);
 	return err;
 }
 
-static int wrapfs_link(struct dentry *old_dentry, struct inode *dir,
+static int trfs_link(struct dentry *old_dentry, struct inode *dir,
 		       struct dentry *new_dentry)
 {
 	struct dentry *lower_old_dentry;
@@ -50,8 +50,8 @@ static int wrapfs_link(struct dentry *old_dentry, struct inode *dir,
 	struct path lower_old_path, lower_new_path;
 
 	file_size_save = i_size_read(d_inode(old_dentry));
-	wrapfs_get_lower_path(old_dentry, &lower_old_path);
-	wrapfs_get_lower_path(new_dentry, &lower_new_path);
+	trfs_get_lower_path(old_dentry, &lower_old_path);
+	trfs_get_lower_path(new_dentry, &lower_new_path);
 	lower_old_dentry = lower_old_path.dentry;
 	lower_new_dentry = lower_new_path.dentry;
 	lower_dir_dentry = lock_parent(lower_new_dentry);
@@ -61,30 +61,30 @@ static int wrapfs_link(struct dentry *old_dentry, struct inode *dir,
 	if (err || !d_inode(lower_new_dentry))
 		goto out;
 
-	err = wrapfs_interpose(new_dentry, dir->i_sb, &lower_new_path);
+	err = trfs_interpose(new_dentry, dir->i_sb, &lower_new_path);
 	if (err)
 		goto out;
 	fsstack_copy_attr_times(dir, d_inode(lower_new_dentry));
 	fsstack_copy_inode_size(dir, d_inode(lower_new_dentry));
 	set_nlink(d_inode(old_dentry),
-		  wrapfs_lower_inode(d_inode(old_dentry))->i_nlink);
+		  trfs_lower_inode(d_inode(old_dentry))->i_nlink);
 	i_size_write(d_inode(new_dentry), file_size_save);
 out:
 	unlock_dir(lower_dir_dentry);
-	wrapfs_put_lower_path(old_dentry, &lower_old_path);
-	wrapfs_put_lower_path(new_dentry, &lower_new_path);
+	trfs_put_lower_path(old_dentry, &lower_old_path);
+	trfs_put_lower_path(new_dentry, &lower_new_path);
 	return err;
 }
 
-static int wrapfs_unlink(struct inode *dir, struct dentry *dentry)
+static int trfs_unlink(struct inode *dir, struct dentry *dentry)
 {
 	int err;
 	struct dentry *lower_dentry;
-	struct inode *lower_dir_inode = wrapfs_lower_inode(dir);
+	struct inode *lower_dir_inode = trfs_lower_inode(dir);
 	struct dentry *lower_dir_dentry;
 	struct path lower_path;
 
-	wrapfs_get_lower_path(dentry, &lower_path);
+	trfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
 	dget(lower_dentry);
 	lower_dir_dentry = lock_parent(lower_dentry);
@@ -105,17 +105,17 @@ static int wrapfs_unlink(struct inode *dir, struct dentry *dentry)
 	fsstack_copy_attr_times(dir, lower_dir_inode);
 	fsstack_copy_inode_size(dir, lower_dir_inode);
 	set_nlink(d_inode(dentry),
-		  wrapfs_lower_inode(d_inode(dentry))->i_nlink);
+		  trfs_lower_inode(d_inode(dentry))->i_nlink);
 	d_inode(dentry)->i_ctime = dir->i_ctime;
 	d_drop(dentry); /* this is needed, else LTP fails (VFS won't do it) */
 out:
 	unlock_dir(lower_dir_dentry);
 	dput(lower_dentry);
-	wrapfs_put_lower_path(dentry, &lower_path);
+	trfs_put_lower_path(dentry, &lower_path);
 	return err;
 }
 
-static int wrapfs_symlink(struct inode *dir, struct dentry *dentry,
+static int trfs_symlink(struct inode *dir, struct dentry *dentry,
 			  const char *symname)
 {
 	int err;
@@ -123,33 +123,33 @@ static int wrapfs_symlink(struct inode *dir, struct dentry *dentry,
 	struct dentry *lower_parent_dentry = NULL;
 	struct path lower_path;
 
-	wrapfs_get_lower_path(dentry, &lower_path);
+	trfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
 	lower_parent_dentry = lock_parent(lower_dentry);
 
 	err = vfs_symlink(d_inode(lower_parent_dentry), lower_dentry, symname);
 	if (err)
 		goto out;
-	err = wrapfs_interpose(dentry, dir->i_sb, &lower_path);
+	err = trfs_interpose(dentry, dir->i_sb, &lower_path);
 	if (err)
 		goto out;
-	fsstack_copy_attr_times(dir, wrapfs_lower_inode(dir));
+	fsstack_copy_attr_times(dir, trfs_lower_inode(dir));
 	fsstack_copy_inode_size(dir, d_inode(lower_parent_dentry));
 
 out:
 	unlock_dir(lower_parent_dentry);
-	wrapfs_put_lower_path(dentry, &lower_path);
+	trfs_put_lower_path(dentry, &lower_path);
 	return err;
 }
 
-static int wrapfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
+static int trfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 {
 	int err;
 	struct dentry *lower_dentry;
 	struct dentry *lower_parent_dentry = NULL;
 	struct path lower_path;
 
-	wrapfs_get_lower_path(dentry, &lower_path);
+	trfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
 	lower_parent_dentry = lock_parent(lower_dentry);
 
@@ -157,29 +157,29 @@ static int wrapfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 	if (err)
 		goto out;
 
-	err = wrapfs_interpose(dentry, dir->i_sb, &lower_path);
+	err = trfs_interpose(dentry, dir->i_sb, &lower_path);
 	if (err)
 		goto out;
 
-	fsstack_copy_attr_times(dir, wrapfs_lower_inode(dir));
+	fsstack_copy_attr_times(dir, trfs_lower_inode(dir));
 	fsstack_copy_inode_size(dir, d_inode(lower_parent_dentry));
 	/* update number of links on parent directory */
-	set_nlink(dir, wrapfs_lower_inode(dir)->i_nlink);
+	set_nlink(dir, trfs_lower_inode(dir)->i_nlink);
 
 out:
 	unlock_dir(lower_parent_dentry);
-	wrapfs_put_lower_path(dentry, &lower_path);
+	trfs_put_lower_path(dentry, &lower_path);
 	return err;
 }
 
-static int wrapfs_rmdir(struct inode *dir, struct dentry *dentry)
+static int trfs_rmdir(struct inode *dir, struct dentry *dentry)
 {
 	struct dentry *lower_dentry;
 	struct dentry *lower_dir_dentry;
 	int err;
 	struct path lower_path;
 
-	wrapfs_get_lower_path(dentry, &lower_path);
+	trfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
 	lower_dir_dentry = lock_parent(lower_dentry);
 
@@ -196,11 +196,11 @@ static int wrapfs_rmdir(struct inode *dir, struct dentry *dentry)
 
 out:
 	unlock_dir(lower_dir_dentry);
-	wrapfs_put_lower_path(dentry, &lower_path);
+	trfs_put_lower_path(dentry, &lower_path);
 	return err;
 }
 
-static int wrapfs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode,
+static int trfs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode,
 			dev_t dev)
 {
 	int err;
@@ -208,7 +208,7 @@ static int wrapfs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode,
 	struct dentry *lower_parent_dentry = NULL;
 	struct path lower_path;
 
-	wrapfs_get_lower_path(dentry, &lower_path);
+	trfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
 	lower_parent_dentry = lock_parent(lower_dentry);
 
@@ -216,23 +216,23 @@ static int wrapfs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode,
 	if (err)
 		goto out;
 
-	err = wrapfs_interpose(dentry, dir->i_sb, &lower_path);
+	err = trfs_interpose(dentry, dir->i_sb, &lower_path);
 	if (err)
 		goto out;
-	fsstack_copy_attr_times(dir, wrapfs_lower_inode(dir));
+	fsstack_copy_attr_times(dir, trfs_lower_inode(dir));
 	fsstack_copy_inode_size(dir, d_inode(lower_parent_dentry));
 
 out:
 	unlock_dir(lower_parent_dentry);
-	wrapfs_put_lower_path(dentry, &lower_path);
+	trfs_put_lower_path(dentry, &lower_path);
 	return err;
 }
 
 /*
- * The locking rules in wrapfs_rename are complex.  We could use a simpler
+ * The locking rules in trfs_rename are complex.  We could use a simpler
  * superblock-level name-space lock for renames and copy-ups.
  */
-static int wrapfs_rename(struct inode *old_dir, struct dentry *old_dentry,
+static int trfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 			 struct inode *new_dir, struct dentry *new_dentry)
 {
 	int err = 0;
@@ -243,8 +243,8 @@ static int wrapfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 	struct dentry *trap = NULL;
 	struct path lower_old_path, lower_new_path;
 
-	wrapfs_get_lower_path(old_dentry, &lower_old_path);
-	wrapfs_get_lower_path(new_dentry, &lower_new_path);
+	trfs_get_lower_path(old_dentry, &lower_old_path);
+	trfs_get_lower_path(new_dentry, &lower_new_path);
 	lower_old_dentry = lower_old_path.dentry;
 	lower_new_dentry = lower_new_path.dentry;
 	lower_old_dir_dentry = dget_parent(lower_old_dentry);
@@ -281,18 +281,18 @@ out:
 	unlock_rename(lower_old_dir_dentry, lower_new_dir_dentry);
 	dput(lower_old_dir_dentry);
 	dput(lower_new_dir_dentry);
-	wrapfs_put_lower_path(old_dentry, &lower_old_path);
-	wrapfs_put_lower_path(new_dentry, &lower_new_path);
+	trfs_put_lower_path(old_dentry, &lower_old_path);
+	trfs_put_lower_path(new_dentry, &lower_new_path);
 	return err;
 }
 
-static int wrapfs_readlink(struct dentry *dentry, char __user *buf, int bufsiz)
+static int trfs_readlink(struct dentry *dentry, char __user *buf, int bufsiz)
 {
 	int err;
 	struct dentry *lower_dentry;
 	struct path lower_path;
 
-	wrapfs_get_lower_path(dentry, &lower_path);
+	trfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
 	if (!d_inode(lower_dentry)->i_op ||
 	    !d_inode(lower_dentry)->i_op->readlink) {
@@ -307,11 +307,11 @@ static int wrapfs_readlink(struct dentry *dentry, char __user *buf, int bufsiz)
 	fsstack_copy_attr_atime(d_inode(dentry), d_inode(lower_dentry));
 
 out:
-	wrapfs_put_lower_path(dentry, &lower_path);
+	trfs_put_lower_path(dentry, &lower_path);
 	return err;
 }
 
-static const char *wrapfs_get_link(struct dentry *dentry, struct inode *inode,
+static const char *trfs_get_link(struct dentry *dentry, struct inode *inode,
 				   struct delayed_call *done)
 {
 	char *buf;
@@ -331,7 +331,7 @@ static const char *wrapfs_get_link(struct dentry *dentry, struct inode *inode,
 	/* read the symlink, and then we will follow it */
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);
-	err = wrapfs_readlink(dentry, buf, len);
+	err = trfs_readlink(dentry, buf, len);
 	set_fs(old_fs);
 	if (err < 0) {
 		kfree(buf);
@@ -343,17 +343,17 @@ static const char *wrapfs_get_link(struct dentry *dentry, struct inode *inode,
 	return buf;
 }
 
-static int wrapfs_permission(struct inode *inode, int mask)
+static int trfs_permission(struct inode *inode, int mask)
 {
 	struct inode *lower_inode;
 	int err;
 
-	lower_inode = wrapfs_lower_inode(inode);
+	lower_inode = trfs_lower_inode(inode);
 	err = inode_permission(lower_inode, mask);
 	return err;
 }
 
-static int wrapfs_setattr(struct dentry *dentry, struct iattr *ia)
+static int trfs_setattr(struct dentry *dentry, struct iattr *ia)
 {
 	int err;
 	struct dentry *lower_dentry;
@@ -373,14 +373,14 @@ static int wrapfs_setattr(struct dentry *dentry, struct iattr *ia)
 	if (err)
 		goto out_err;
 
-	wrapfs_get_lower_path(dentry, &lower_path);
+	trfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
-	lower_inode = wrapfs_lower_inode(inode);
+	lower_inode = trfs_lower_inode(inode);
 
 	/* prepare our own lower struct iattr (with the lower file) */
 	memcpy(&lower_ia, ia, sizeof(lower_ia));
 	if (ia->ia_valid & ATTR_FILE)
-		lower_ia.ia_file = wrapfs_lower_file(ia->ia_file);
+		lower_ia.ia_file = trfs_lower_file(ia->ia_file);
 
 	/*
 	 * If shrinking, first truncate upper level to cancel writing dirty
@@ -426,19 +426,19 @@ static int wrapfs_setattr(struct dentry *dentry, struct iattr *ia)
 	 */
 
 out:
-	wrapfs_put_lower_path(dentry, &lower_path);
+	trfs_put_lower_path(dentry, &lower_path);
 out_err:
 	return err;
 }
 
-static int wrapfs_getattr(struct vfsmount *mnt, struct dentry *dentry,
+static int trfs_getattr(struct vfsmount *mnt, struct dentry *dentry,
 			  struct kstat *stat)
 {
 	int err;
 	struct kstat lower_stat;
 	struct path lower_path;
 
-	wrapfs_get_lower_path(dentry, &lower_path);
+	trfs_get_lower_path(dentry, &lower_path);
 	err = vfs_getattr(&lower_path, &lower_stat);
 	if (err)
 		goto out;
@@ -447,18 +447,18 @@ static int wrapfs_getattr(struct vfsmount *mnt, struct dentry *dentry,
 	generic_fillattr(d_inode(dentry), stat);
 	stat->blocks = lower_stat.blocks;
 out:
-	wrapfs_put_lower_path(dentry, &lower_path);
+	trfs_put_lower_path(dentry, &lower_path);
 	return err;
 }
 
 static int
-wrapfs_setxattr(struct dentry *dentry, const char *name, const void *value,
+trfs_setxattr(struct dentry *dentry, const char *name, const void *value,
 		size_t size, int flags)
 {
 	int err; struct dentry *lower_dentry;
 	struct path lower_path;
 
-	wrapfs_get_lower_path(dentry, &lower_path);
+	trfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
 	if (!d_inode(lower_dentry)->i_op->setxattr) {
 		err = -EOPNOTSUPP;
@@ -470,19 +470,19 @@ wrapfs_setxattr(struct dentry *dentry, const char *name, const void *value,
 	fsstack_copy_attr_all(d_inode(dentry),
 			      d_inode(lower_path.dentry));
 out:
-	wrapfs_put_lower_path(dentry, &lower_path);
+	trfs_put_lower_path(dentry, &lower_path);
 	return err;
 }
 
 static ssize_t
-wrapfs_getxattr(struct dentry *dentry, const char *name, void *buffer,
+trfs_getxattr(struct dentry *dentry, const char *name, void *buffer,
 		size_t size)
 {
 	int err;
 	struct dentry *lower_dentry;
 	struct path lower_path;
 
-	wrapfs_get_lower_path(dentry, &lower_path);
+	trfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
 	if (!d_inode(lower_dentry)->i_op->getxattr) {
 		err = -EOPNOTSUPP;
@@ -494,18 +494,18 @@ wrapfs_getxattr(struct dentry *dentry, const char *name, void *buffer,
 	fsstack_copy_attr_atime(d_inode(dentry),
 				d_inode(lower_path.dentry));
 out:
-	wrapfs_put_lower_path(dentry, &lower_path);
+	trfs_put_lower_path(dentry, &lower_path);
 	return err;
 }
 
 static ssize_t
-wrapfs_listxattr(struct dentry *dentry, char *buffer, size_t buffer_size)
+trfs_listxattr(struct dentry *dentry, char *buffer, size_t buffer_size)
 {
 	int err;
 	struct dentry *lower_dentry;
 	struct path lower_path;
 
-	wrapfs_get_lower_path(dentry, &lower_path);
+	trfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
 	if (!d_inode(lower_dentry)->i_op->listxattr) {
 		err = -EOPNOTSUPP;
@@ -517,18 +517,18 @@ wrapfs_listxattr(struct dentry *dentry, char *buffer, size_t buffer_size)
 	fsstack_copy_attr_atime(d_inode(dentry),
 				d_inode(lower_path.dentry));
 out:
-	wrapfs_put_lower_path(dentry, &lower_path);
+	trfs_put_lower_path(dentry, &lower_path);
 	return err;
 }
 
 static int
-wrapfs_removexattr(struct dentry *dentry, const char *name)
+trfs_removexattr(struct dentry *dentry, const char *name)
 {
 	int err;
 	struct dentry *lower_dentry;
 	struct path lower_path;
 
-	wrapfs_get_lower_path(dentry, &lower_path);
+	trfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
 	if (!d_inode(lower_dentry)->i_op ||
 	    !d_inode(lower_dentry)->i_op->removexattr) {
@@ -541,46 +541,46 @@ wrapfs_removexattr(struct dentry *dentry, const char *name)
 	fsstack_copy_attr_all(d_inode(dentry),
 			      d_inode(lower_path.dentry));
 out:
-	wrapfs_put_lower_path(dentry, &lower_path);
+	trfs_put_lower_path(dentry, &lower_path);
 	return err;
 }
-const struct inode_operations wrapfs_symlink_iops = {
-	.readlink	= wrapfs_readlink,
-	.permission	= wrapfs_permission,
-	.setattr	= wrapfs_setattr,
-	.getattr	= wrapfs_getattr,
-	.get_link	= wrapfs_get_link,
-	.setxattr	= wrapfs_setxattr,
-	.getxattr	= wrapfs_getxattr,
-	.listxattr	= wrapfs_listxattr,
-	.removexattr	= wrapfs_removexattr,
+const struct inode_operations trfs_symlink_iops = {
+	.readlink	= trfs_readlink,
+	.permission	= trfs_permission,
+	.setattr	= trfs_setattr,
+	.getattr	= trfs_getattr,
+	.get_link	= trfs_get_link,
+	.setxattr	= trfs_setxattr,
+	.getxattr	= trfs_getxattr,
+	.listxattr	= trfs_listxattr,
+	.removexattr	= trfs_removexattr,
 };
 
-const struct inode_operations wrapfs_dir_iops = {
-	.create		= wrapfs_create,
-	.lookup		= wrapfs_lookup,
-	.link		= wrapfs_link,
-	.unlink		= wrapfs_unlink,
-	.symlink	= wrapfs_symlink,
-	.mkdir		= wrapfs_mkdir,
-	.rmdir		= wrapfs_rmdir,
-	.mknod		= wrapfs_mknod,
-	.rename		= wrapfs_rename,
-	.permission	= wrapfs_permission,
-	.setattr	= wrapfs_setattr,
-	.getattr	= wrapfs_getattr,
-	.setxattr	= wrapfs_setxattr,
-	.getxattr	= wrapfs_getxattr,
-	.listxattr	= wrapfs_listxattr,
-	.removexattr	= wrapfs_removexattr,
+const struct inode_operations trfs_dir_iops = {
+	.create		= trfs_create,
+	.lookup		= trfs_lookup,
+	.link		= trfs_link,
+	.unlink		= trfs_unlink,
+	.symlink	= trfs_symlink,
+	.mkdir		= trfs_mkdir,
+	.rmdir		= trfs_rmdir,
+	.mknod		= trfs_mknod,
+	.rename		= trfs_rename,
+	.permission	= trfs_permission,
+	.setattr	= trfs_setattr,
+	.getattr	= trfs_getattr,
+	.setxattr	= trfs_setxattr,
+	.getxattr	= trfs_getxattr,
+	.listxattr	= trfs_listxattr,
+	.removexattr	= trfs_removexattr,
 };
 
-const struct inode_operations wrapfs_main_iops = {
-	.permission	= wrapfs_permission,
-	.setattr	= wrapfs_setattr,
-	.getattr	= wrapfs_getattr,
-	.setxattr	= wrapfs_setxattr,
-	.getxattr	= wrapfs_getxattr,
-	.listxattr	= wrapfs_listxattr,
-	.removexattr	= wrapfs_removexattr,
+const struct inode_operations trfs_main_iops = {
+	.permission	= trfs_permission,
+	.setattr	= trfs_setattr,
+	.getattr	= trfs_getattr,
+	.setxattr	= trfs_setxattr,
+	.getxattr	= trfs_getxattr,
+	.listxattr	= trfs_listxattr,
+	.removexattr	= trfs_removexattr,
 };

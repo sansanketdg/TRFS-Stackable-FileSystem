@@ -9,14 +9,14 @@
  * published by the Free Software Foundation.
  */
 
-#include "wrapfs.h"
+#include "trfs.h"
 #include <linux/module.h>
 
 /*
- * There is no need to lock the wrapfs_super_info's rwsem as there is no
+ * There is no need to lock the trfs_super_info's rwsem as there is no
  * way anyone can have a reference to the superblock at this point in time.
  */
-static int wrapfs_read_super(struct super_block *sb, void *raw_data, int silent)
+static int trfs_read_super(struct super_block *sb, void *raw_data, int silent)
 {
 	int err = 0;
 	struct super_block *lower_sb;
@@ -26,7 +26,7 @@ static int wrapfs_read_super(struct super_block *sb, void *raw_data, int silent)
 
 	if (!dev_name) {
 		printk(KERN_ERR
-		       "wrapfs: read_super: missing dev_name argument\n");
+		       "trfs: read_super: missing dev_name argument\n");
 		err = -EINVAL;
 		goto out;
 	}
@@ -35,15 +35,15 @@ static int wrapfs_read_super(struct super_block *sb, void *raw_data, int silent)
 	err = kern_path(dev_name, LOOKUP_FOLLOW | LOOKUP_DIRECTORY,
 			&lower_path);
 	if (err) {
-		printk(KERN_ERR	"wrapfs: error accessing "
+		printk(KERN_ERR	"trfs: error accessing "
 		       "lower directory '%s'\n", dev_name);
 		goto out;
 	}
 
 	/* allocate superblock private data */
-	sb->s_fs_info = kzalloc(sizeof(struct wrapfs_sb_info), GFP_KERNEL);
-	if (!WRAPFS_SB(sb)) {
-		printk(KERN_CRIT "wrapfs: read_super: out of memory\n");
+	sb->s_fs_info = kzalloc(sizeof(struct trfs_sb_info), GFP_KERNEL);
+	if (!TRFS_SB(sb)) {
+		printk(KERN_CRIT "trfs: read_super: out of memory\n");
 		err = -ENOMEM;
 		goto out_free;
 	}
@@ -51,7 +51,7 @@ static int wrapfs_read_super(struct super_block *sb, void *raw_data, int silent)
 	/* set the lower superblock field of upper superblock */
 	lower_sb = lower_path.dentry->d_sb;
 	atomic_inc(&lower_sb->s_active);
-	wrapfs_set_lower_super(sb, lower_sb);
+	trfs_set_lower_super(sb, lower_sb);
 
 	/* inherit maxbytes from lower file system */
 	sb->s_maxbytes = lower_sb->s_maxbytes;
@@ -62,12 +62,12 @@ static int wrapfs_read_super(struct super_block *sb, void *raw_data, int silent)
 	 */
 	sb->s_time_gran = 1;
 
-	sb->s_op = &wrapfs_sops;
+	sb->s_op = &trfs_sops;
 
-	sb->s_export_op = &wrapfs_export_ops; /* adding NFS support */
+	sb->s_export_op = &trfs_export_ops; /* adding NFS support */
 
 	/* get a new inode and allocate our root dentry */
-	inode = wrapfs_iget(sb, d_inode(lower_path.dentry));
+	inode = trfs_iget(sb, d_inode(lower_path.dentry));
 	if (IS_ERR(inode)) {
 		err = PTR_ERR(inode);
 		goto out_sput;
@@ -77,7 +77,7 @@ static int wrapfs_read_super(struct super_block *sb, void *raw_data, int silent)
 		err = -ENOMEM;
 		goto out_iput;
 	}
-	d_set_d_op(sb->s_root, &wrapfs_dops);
+	d_set_d_op(sb->s_root, &trfs_dops);
 
 	/* link the upper and lower dentries */
 	sb->s_root->d_fsdata = NULL;
@@ -88,7 +88,7 @@ static int wrapfs_read_super(struct super_block *sb, void *raw_data, int silent)
 	/* if get here: cannot have error */
 
 	/* set the lower dentries for s_root */
-	wrapfs_set_lower_path(sb->s_root, &lower_path);
+	trfs_set_lower_path(sb->s_root, &lower_path);
 
 	/*
 	 * No need to call interpose because we already have a positive
@@ -98,7 +98,7 @@ static int wrapfs_read_super(struct super_block *sb, void *raw_data, int silent)
 	d_rehash(sb->s_root);
 	if (!silent)
 		printk(KERN_INFO
-		       "wrapfs: mounted on top of %s type %s\n",
+		       "trfs: mounted on top of %s type %s\n",
 		       dev_name, lower_sb->s_type->name);
 	goto out; /* all is well */
 
@@ -110,7 +110,7 @@ out_iput:
 out_sput:
 	/* drop refs we took earlier */
 	atomic_dec(&lower_sb->s_active);
-	kfree(WRAPFS_SB(sb));
+	kfree(TRFS_SB(sb));
 	sb->s_fs_info = NULL;
 out_free:
 	path_put(&lower_path);
@@ -119,58 +119,58 @@ out:
 	return err;
 }
 
-struct dentry *wrapfs_mount(struct file_system_type *fs_type, int flags,
+struct dentry *trfs_mount(struct file_system_type *fs_type, int flags,
 			    const char *dev_name, void *raw_data)
 {
 	void *lower_path_name = (void *) dev_name;
 
 	return mount_nodev(fs_type, flags, lower_path_name,
-			   wrapfs_read_super);
+			   trfs_read_super);
 }
 
-static struct file_system_type wrapfs_fs_type = {
+static struct file_system_type trfs_fs_type = {
 	.owner		= THIS_MODULE,
-	.name		= WRAPFS_NAME,
-	.mount		= wrapfs_mount,
+	.name		= TRFS_NAME,
+	.mount		= trfs_mount,
 	.kill_sb	= generic_shutdown_super,
 	.fs_flags	= 0,
 };
-MODULE_ALIAS_FS(WRAPFS_NAME);
+MODULE_ALIAS_FS(TRFS_NAME);
 
-static int __init init_wrapfs_fs(void)
+static int __init init_trfs_fs(void)
 {
 	int err;
 
-	pr_info("Registering wrapfs " WRAPFS_VERSION "\n");
+	pr_info("Registering trfs " TRFS_VERSION "\n");
 
-	err = wrapfs_init_inode_cache();
+	err = trfs_init_inode_cache();
 	if (err)
 		goto out;
-	err = wrapfs_init_dentry_cache();
+	err = trfs_init_dentry_cache();
 	if (err)
 		goto out;
-	err = register_filesystem(&wrapfs_fs_type);
+	err = register_filesystem(&trfs_fs_type);
 out:
 	if (err) {
-		wrapfs_destroy_inode_cache();
-		wrapfs_destroy_dentry_cache();
+		trfs_destroy_inode_cache();
+		trfs_destroy_dentry_cache();
 	}
 	return err;
 }
 
-static void __exit exit_wrapfs_fs(void)
+static void __exit exit_trfs_fs(void)
 {
-	wrapfs_destroy_inode_cache();
-	wrapfs_destroy_dentry_cache();
-	unregister_filesystem(&wrapfs_fs_type);
-	pr_info("Completed wrapfs module unload\n");
+	trfs_destroy_inode_cache();
+	trfs_destroy_dentry_cache();
+	unregister_filesystem(&trfs_fs_type);
+	pr_info("Completed trfs module unload\n");
 }
 
 MODULE_AUTHOR("Erez Zadok, Filesystems and Storage Lab, Stony Brook University"
 	      " (http://www.fsl.cs.sunysb.edu/)");
-MODULE_DESCRIPTION("Wrapfs " WRAPFS_VERSION
-		   " (http://wrapfs.filesystems.org/)");
+MODULE_DESCRIPTION("Wrapfs " TRFS_VERSION
+		   " (http://trfs.filesystems.org/)");
 MODULE_LICENSE("GPL");
 
-module_init(init_wrapfs_fs);
-module_exit(exit_wrapfs_fs);
+module_init(init_trfs_fs);
+module_exit(exit_trfs_fs);
