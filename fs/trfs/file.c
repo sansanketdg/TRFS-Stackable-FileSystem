@@ -266,7 +266,7 @@ static int trfs_fasync(int fd, struct file *file, int flag)
 }
 
 /*
- * Wrapfs cannot use generic_file_llseek as ->llseek, because it would
+ * Trfs cannot use generic_file_llseek as ->llseek, because it would
  * only set the offset of the upper file.  So we have to implement our
  * own method to set both the upper and lower file offsets
  * consistently.
@@ -288,7 +288,7 @@ out:
 }
 
 /*
- * Wrapfs read_iter, redirect modified iocb to lower read_iter
+ * Trfs read_iter, redirect modified iocb to lower read_iter
  */
 ssize_t
 trfs_read_iter(struct kiocb *iocb, struct iov_iter *iter)
@@ -316,7 +316,7 @@ out:
 }
 
 /*
- * Wrapfs write_iter, redirect modified iocb to lower write_iter
+ * Trfs write_iter, redirect modified iocb to lower write_iter
  */
 ssize_t
 trfs_write_iter(struct kiocb *iocb, struct iov_iter *iter)

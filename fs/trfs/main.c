@@ -140,7 +140,7 @@ MODULE_ALIAS_FS(TRFS_NAME);
 static int __init init_trfs_fs(void)
 {
 	int err;
-	
+
 	pr_info("Registering trfs " TRFS_VERSION "\n");
 
 	err = trfs_init_inode_cache();
