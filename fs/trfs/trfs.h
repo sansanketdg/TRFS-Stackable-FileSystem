@@ -45,7 +45,7 @@ extern const struct inode_operations trfs_dir_iops;
 extern const struct inode_operations trfs_symlink_iops;
 extern const struct super_operations trfs_sops;
 extern const struct dentry_operations trfs_dops;
-extern const struct address_space_operations trfs_aops, trfs_dummy_aops;
+extern const struct address_space_operations trfs_aops, wrapfs_dummy_aops;
 extern const struct vm_operations_struct trfs_vm_ops;
 extern const struct export_operations trfs_export_ops;
 
