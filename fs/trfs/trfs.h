@@ -80,9 +80,16 @@ struct trfs_dentry_info {
 	struct path lower_path;
 };
 
+/* trfs trace-file information in memory*/
+struct trfs_tracefile_info {
+	struct file *filename;
+	unsigned long long *offset;
+}
+
 /* trfs super-block data in memory */
 struct trfs_sb_info {
 	struct super_block *lower_sb;
+	struct trfs_tracefile_info *tracefile;
 };
 
 /*

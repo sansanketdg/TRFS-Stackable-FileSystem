@@ -125,9 +125,11 @@ out:
 int process_raw_data_and_create_the_file(void *raw_data)
 {
 	int ret=0;
+	struct trfs_sb_info *sb_info;
 	char* temp_raw_data = (char* )raw_data;
 	mm_segment_t old_fs;
 	struct file *tracefile=NULL;
+	unsigned long long *offset;
 	old_fs = get_fs();
 	set_fs(get_ds());
 	if (temp_raw_data==NULL)
@@ -144,6 +146,7 @@ int process_raw_data_and_create_the_file(void *raw_data)
 		printk("Count't create the file\n");
 		ret= PTR_ERR(tracefile);
 	}
+	*offset=0;
 	
 	out:
 		return ret;
