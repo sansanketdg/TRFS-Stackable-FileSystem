@@ -1,8 +1,8 @@
 TRFS_VERSION="0.1"
 
-obj-m:= trfs.o main.o
+obj-m:= trfs.o
 
-EXTRA_CFLAGS += -DTRFS_VERSION=\"$(WRAPFS_VERSION)\"
+EXTRA_CFLAGS += -DTRFS_VERSION=\"$(TRFS_VERSION)\"
 
 obj-$(CONFIG_TR_FS) += trfs.o
 
