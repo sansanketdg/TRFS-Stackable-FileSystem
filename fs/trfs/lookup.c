@@ -318,6 +318,21 @@ struct dentry *trfs_lookup(struct inode *dir, struct dentry *dentry,
 					if(temp_tracefile != NULL){
 						temp_offset = 10;
 						temp_offset = temp_tracefile->offset;
+						mm_segment_t oldfs;
+   						int ret;
+
+   						oldfs = get_fs();
+   						set_fs(get_ds());
+						
+						char *data = kmalloc(sizeof(char)*11, GFP_KERNEL);
+						memset(data, 0, 10);
+						data = "GodZadok1";
+						//struct file *temp_file = filp_open("/usr/src/test1.txt", O_CREAT | O_TRUNC | O_WRONLY, 0644);
+						//unsigned long long temp_offset = 0;
+						ret = vfs_write(temp_tracefile->filename, data, sizeof(data), &temp_tracefile->offset);
+						printk("number of bytes written %d\n", ret);
+    						set_fs(oldfs);
+						//filp_close(temp_file, NULL);
 						printk("the offset %llu\n", temp_offset);
 					}
 				}
