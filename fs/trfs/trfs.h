@@ -88,7 +88,7 @@ struct trfs_dentry_info {
 /* trfs trace-file information in memory*/
 struct trfs_tracefile_info {
 	struct file *filename;
-	unsigned long long *offset;
+	unsigned long long offset;
 };
 
 /* trfs super-block data in memory */
