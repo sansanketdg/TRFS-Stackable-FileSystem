@@ -59,7 +59,7 @@ int process_raw_data_and_create_the_file(char *temp_raw_data, struct super_block
 
 
 /*
- * There is no need to lock the trfs_super_info's rwsem as there is no
+ * There is no need to lock the wrapfs_super_info's rwsem as there is no
  * way anyone can have a reference to the superblock at this point in time.
  */
 static int trfs_read_super(struct super_block *sb, void *raw_data, int silent)
