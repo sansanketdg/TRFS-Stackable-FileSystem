@@ -62,6 +62,11 @@ extern struct inode *trfs_iget(struct super_block *sb,
 extern int trfs_interpose(struct dentry *dentry, struct super_block *sb,
 			    struct path *lower_path);
 
+struct trfs_options_data {
+	char *tracefile_path;
+	char *lower_fs_path;
+};
+
 /* file private data */
 struct trfs_file_info {
 	struct file *lower_file;
@@ -84,7 +89,7 @@ struct trfs_dentry_info {
 struct trfs_tracefile_info {
 	struct file *filename;
 	unsigned long long *offset;
-}
+};
 
 /* trfs super-block data in memory */
 struct trfs_sb_info {
