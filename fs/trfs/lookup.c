@@ -295,6 +295,35 @@ struct dentry *trfs_lookup(struct inode *dir, struct dentry *dentry,
 	int err;
 	struct dentry *ret, *parent;
 	struct path lower_parent_path;
+	
+	struct inode *temp_inode;
+	struct super_block *temp_sb;
+	struct trfs_tracefile_info *temp_tracefile;
+	unsigned long long temp_offset;
+
+	printk("before dentry anything\n");
+	if(dir != NULL){
+		//temp_inode = dentry->d_inode;
+		temp_inode = dir;
+		printk("before inode\n");
+		if(temp_inode != NULL){
+			temp_sb = temp_inode->i_sb;
+			printk("before sb\n");
+			if(temp_sb != NULL){
+				struct trfs_sb_info *trfs_sb = (struct trfs_sb_info *)temp_sb->s_fs_info;
+				printk("before trfs_sb_info\n");
+				if(trfs_sb != NULL){
+					temp_tracefile = trfs_sb->tracefile;
+					printk("before tracefile\n");
+					if(temp_tracefile != NULL){
+						temp_offset = 10;
+						temp_offset = temp_tracefile->offset;
+						printk("the offset %llu\n", temp_offset);
+					}
+				}
+			}
+		}
+	}
 
 	parent = dget_parent(dentry);
 
