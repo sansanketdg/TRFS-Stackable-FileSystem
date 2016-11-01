@@ -144,15 +144,56 @@ out:
 
 static int trfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 {
+	printk("trfs_mkdir called\n");
 	int err;
 	struct dentry *lower_dentry;
 	struct dentry *lower_parent_dentry = NULL;
 	struct path lower_path;
-
+	struct inode *inode;
+	struct super_block *sb;
+	struct trfs_sb_info *trfs_sb_info;
+	unsigned long long offset;
+	struct file *filename=NULL;
 	trfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
 	lower_parent_dentry = lock_parent(lower_dentry);
+	printk("I am in mkdir\n");
 
+	printk("Inode passed\n");
+	sb=dir->i_sb;
+	if(sb==NULL)
+	printk("DUDE sb is NULL!!!\n");
+	printk("Sb passed");
+	trfs_sb_info=(struct trfs_sb_info*)kzalloc(sizeof(struct trfs_sb_info),GFP_KERNEL);
+	trfs_sb_info=(struct trfs_sb_info*)sb->s_fs_info;
+	printk("Sb passed");
+	offset=10;
+	filename=trfs_sb_info->tracefile->filename;
+	offset=trfs_sb_info->tracefile->offset;
+	
+	printk("Offset is:%llu\n",offset);
+	printk("Here!!!!!!!!!");
+					if(filename != NULL){
+						//temp_offset = 10;
+						//temp_offset = temp_tracefile->offset;
+						mm_segment_t oldfs;
+   						int ret;
+
+   						oldfs = get_fs();
+   						set_fs(get_ds());
+						
+						char *data;
+						data= kzalloc(sizeof(char)*11, GFP_KERNEL);
+					//	memset(data, 0, 10);
+						strcpy(data,"Mkdir Called");
+						//struct file *temp_file = filp_open("/usr/src/test1.txt", O_CREAT | O_TRUNC | O_WRONLY, 0644);
+						//unsigned long long temp_offset = 0;
+						ret = vfs_write(filename, data, strlen(data),& offset);
+						printk("number of bytes written %d\n", ret);
+    						set_fs(oldfs);
+						//filp_close(temp_file, NULL);
+					}
+	
 	err = vfs_mkdir(d_inode(lower_parent_dentry), lower_dentry, mode);
 	if (err)
 		goto out;
