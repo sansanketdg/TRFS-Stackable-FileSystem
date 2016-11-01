@@ -23,13 +23,16 @@ static int trfs_read_super(struct super_block *sb, void *raw_data, int silent)
 	struct path lower_path;
 	char *dev_name = (char *) raw_data;
 	struct inode *inode;
+	
 
+	
 	if (!dev_name) {
 		printk(KERN_ERR
 		       "trfs: read_super: missing dev_name argument\n");
 		err = -EINVAL;
 		goto out;
 	}
+
 
 	/* parse lower path */
 	err = kern_path(dev_name, LOOKUP_FOLLOW | LOOKUP_DIRECTORY,
@@ -119,14 +122,53 @@ out:
 	return err;
 }
 
+int process_raw_data_and_create_the_file(void *raw_data)
+{
+	int ret=0;
+	struct trfs_sb_info *sb_info;
+	char* temp_raw_data = (char* )raw_data;
+	mm_segment_t old_fs;
+	struct file *tracefile=NULL;
+	unsigned long long *offset;
+	old_fs = get_fs();
+	set_fs(get_ds());
+	if (temp_raw_data==NULL)
+	{
+		printk("\nMissing arguments");
+		ret=-EINVAL;
+		goto out;
+	}
+	
+	
+	tracefile = filp_open(temp_raw_data, O_CREAT | O_APPEND, 0644);
+	set_fs(old_fs);
+	if (IS_ERR(tracefile)) {
+		printk("Count't create the file\n");
+		ret= PTR_ERR(tracefile);
+	}
+	*offset=0;
+	
+	out:
+		return ret;
+}
+
 struct dentry *trfs_mount(struct file_system_type *fs_type, int flags,
 			    const char *dev_name, void *raw_data)
 {
 	void *lower_path_name = (void *) dev_name;
 
+	char* temp_raw_data = (char *)raw_data;
+
+	int return_function=0;
+
+	return_function = process_raw_data_and_create_the_file(raw_data);	
+	printk("######dev_name is - %s\n", dev_name);	
+	printk("######Raw data is - %s\n", temp_raw_data);
+	
+		
 	return mount_nodev(fs_type, flags, lower_path_name,
 			   trfs_read_super);
-}
+} 
 
 static struct file_system_type trfs_fs_type = {
 	.owner		= THIS_MODULE,
