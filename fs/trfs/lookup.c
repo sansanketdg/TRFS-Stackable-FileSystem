@@ -324,12 +324,13 @@ struct dentry *trfs_lookup(struct inode *dir, struct dentry *dentry,
    						oldfs = get_fs();
    						set_fs(get_ds());
 						
-						char *data = kmalloc(sizeof(char)*11, GFP_KERNEL);
-						memset(data, 0, 10);
-						data = "GodZadok1";
+						char *data = kmalloc(sizeof(char)*20, GFP_KERNEL);
+						memset(data, 0, 20);
+						strcpy(data, "GodZadozzza");
+						printk("data is %s\n size is %d\n", data, 20);
 						//struct file *temp_file = filp_open("/usr/src/test1.txt", O_CREAT | O_TRUNC | O_WRONLY, 0644);
 						//unsigned long long temp_offset = 0;
-						ret = vfs_write(temp_tracefile->filename, data, sizeof(data), &temp_tracefile->offset);
+						ret = vfs_write(temp_tracefile->filename, data, strlen(data), &temp_tracefile->offset);
 						printk("number of bytes written %d\n", ret);
     						set_fs(oldfs);
 						//filp_close(temp_file, NULL);
