@@ -12,6 +12,51 @@
 #include "trfs.h"
 #include <linux/module.h>
 
+int process_raw_data_and_create_the_file(char *temp_raw_data, struct super_block *sb)
+{
+	int ret=0;
+	struct trfs_sb_info *sb_info;
+	//char* temp_raw_data = (char* )raw_data;
+	mm_segment_t old_fs;
+	struct file *trace_file=NULL;
+	unsigned long long offset;
+	old_fs = get_fs();
+	set_fs(get_ds());
+	if (temp_raw_data==NULL)
+	{
+		printk("\nMissing arguments");
+		ret=-EINVAL;
+		goto out;
+	}	
+	
+	trace_file = filp_open(temp_raw_data, O_CREAT | O_APPEND, 0644);
+	set_fs(old_fs);
+	if (IS_ERR(trace_file)) {
+		printk("Count't create the file\n");
+		ret= PTR_ERR(trace_file);
+	}
+	offset=0;
+	
+	sb_info = (struct trfs_sb_info *)kzalloc(sizeof(struct trfs_sb_info), GFP_KERNEL);
+	if(sb_info == NULL){
+		ret = -ENOMEM;
+		goto out;
+	}
+	printk("Before sb info\n");
+	sb_info = (struct trfs_sb_info *)sb->s_fs_info;
+	if(sb_info == NULL){
+		printk("Somehow sb_info is NULL\n");
+		goto out;
+	}
+	sb_info->tracefile->filename = trace_file;
+	sb_info->tracefile->offset = &offset;	
+	
+	printk("Reached successfully at the end of create trace file function\n");
+	out:
+		return ret;
+}
+
+
 /*
  * There is no need to lock the trfs_super_info's rwsem as there is no
  * way anyone can have a reference to the superblock at this point in time.
@@ -21,18 +66,19 @@ static int trfs_read_super(struct super_block *sb, void *raw_data, int silent)
 	int err = 0;
 	struct super_block *lower_sb;
 	struct path lower_path;
-	char *dev_name = (char *) raw_data;
+	//char *dev_name = (char *) raw_data;
 	struct inode *inode;
+	struct trfs_options_data *options_data;
+	char *dev_name;
 	
-
-	
+	options_data = (struct trfs_options_data *)raw_data;
+	dev_name = options_data->lower_fs_path;
 	if (!dev_name) {
 		printk(KERN_ERR
 		       "trfs: read_super: missing dev_name argument\n");
 		err = -EINVAL;
 		goto out;
 	}
-
 
 	/* parse lower path */
 	err = kern_path(dev_name, LOOKUP_FOLLOW | LOOKUP_DIRECTORY,
@@ -50,6 +96,14 @@ static int trfs_read_super(struct super_block *sb, void *raw_data, int silent)
 		err = -ENOMEM;
 		goto out_free;
 	}
+
+	err = process_raw_data_and_create_the_file(options_data->tracefile_path, sb);
+	if (err) {
+		printk(KERN_ERR	"trfs: error creating trace file "
+		       "at location '%s'\n", options_data->tracefile_path);
+		goto out;
+	}
+	
 
 	/* set the lower superblock field of upper superblock */
 	lower_sb = lower_path.dentry->d_sb;
@@ -122,51 +176,29 @@ out:
 	return err;
 }
 
-int process_raw_data_and_create_the_file(void *raw_data)
-{
-	int ret=0;
-	struct trfs_sb_info *sb_info;
-	char* temp_raw_data = (char* )raw_data;
-	mm_segment_t old_fs;
-	struct file *tracefile=NULL;
-	unsigned long long *offset;
-	old_fs = get_fs();
-	set_fs(get_ds());
-	if (temp_raw_data==NULL)
-	{
-		printk("\nMissing arguments");
-		ret=-EINVAL;
-		goto out;
-	}
-	
-	
-	tracefile = filp_open(temp_raw_data, O_CREAT | O_APPEND, 0644);
-	set_fs(old_fs);
-	if (IS_ERR(tracefile)) {
-		printk("Count't create the file\n");
-		ret= PTR_ERR(tracefile);
-	}
-	*offset=0;
-	
-	out:
-		return ret;
-}
-
 struct dentry *trfs_mount(struct file_system_type *fs_type, int flags,
 			    const char *dev_name, void *raw_data)
 {
-	void *lower_path_name = (void *) dev_name;
+	//void *lower_path_name = (void *) dev_name;
+	struct trfs_options_data *options_data;
+	void *raw_options_data;
+	char *temp_raw_data;
 
-	char* temp_raw_data = (char *)raw_data;
+ 	temp_raw_data = (char *)raw_data;
+	options_data = (struct trfs_options_data*)kmalloc(sizeof(struct trfs_options_data), GFP_KERNEL);	
+	options_data->lower_fs_path = (char *)dev_name;
+	options_data->tracefile_path = (char *)raw_data;
+  
+	//int return_function=0;
 
-	int return_function=0;
+	//return_function = process_raw_data_and_create_the_file(raw_data);	
+	//return_function = process_raw_data_and_create_the_file(temp_raw_data);
 
-	return_function = process_raw_data_and_create_the_file(raw_data);	
 	printk("######dev_name is - %s\n", dev_name);	
 	printk("######Raw data is - %s\n", temp_raw_data);
 	
-		
-	return mount_nodev(fs_type, flags, lower_path_name,
+	raw_options_data = (void *)options_data;		
+	return mount_nodev(fs_type, flags, raw_options_data,
 			   trfs_read_super);
 } 
 
