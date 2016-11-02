@@ -10,6 +10,7 @@
  */
 
 #include "trfs.h"
+#include <linux/namei.h>
 
 static int trfs_create(struct inode *dir, struct dentry *dentry,
 			 umode_t mode, bool want_excl)
@@ -18,6 +19,7 @@ static int trfs_create(struct inode *dir, struct dentry *dentry,
 	struct dentry *lower_dentry;
 	struct dentry *lower_parent_dentry = NULL;
 	struct path lower_path;
+	printk("Trfs_Create called");
 
 	trfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
@@ -42,6 +44,8 @@ out:
 static int trfs_link(struct dentry *old_dentry, struct inode *dir,
 		       struct dentry *new_dentry)
 {
+	printk("Trfs_Link called");
+	
 	struct dentry *lower_old_dentry;
 	struct dentry *lower_new_dentry;
 	struct dentry *lower_dir_dentry;
@@ -78,6 +82,8 @@ out:
 
 static int trfs_unlink(struct inode *dir, struct dentry *dentry)
 {
+	printk("Trfs_Unlink called");
+
 	int err;
 	struct dentry *lower_dentry;
 	struct inode *lower_dir_inode = trfs_lower_inode(dir);
@@ -161,9 +167,6 @@ static int trfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 
 	printk("Inode passed\n");
 	sb=dir->i_sb;
-	if(sb==NULL)
-	printk("DUDE sb is NULL!!!\n");
-	printk("Sb passed");
 	trfs_sb_info=(struct trfs_sb_info*)kzalloc(sizeof(struct trfs_sb_info),GFP_KERNEL);
 	trfs_sb_info=(struct trfs_sb_info*)sb->s_fs_info;
 	printk("Sb passed");
@@ -172,7 +175,6 @@ static int trfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 	offset=trfs_sb_info->tracefile->offset;
 	
 	printk("Offset is:%llu\n",offset);
-	printk("Here!!!!!!!!!");
 					if(filename != NULL){
 						//temp_offset = 10;
 						//temp_offset = temp_tracefile->offset;
@@ -215,6 +217,8 @@ out:
 
 static int trfs_rmdir(struct inode *dir, struct dentry *dentry)
 {
+	printk("Trfs_Rmdir called");
+
 	struct dentry *lower_dentry;
 	struct dentry *lower_dir_dentry;
 	int err;
@@ -244,6 +248,8 @@ out:
 static int trfs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode,
 			dev_t dev)
 {
+	printk("Trfs_Mknod called");
+	
 	int err;
 	struct dentry *lower_dentry;
 	struct dentry *lower_parent_dentry = NULL;
@@ -276,6 +282,8 @@ out:
 static int trfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 			 struct inode *new_dir, struct dentry *new_dentry)
 {
+	printk("Trfs_rename called");
+
 	int err = 0;
 	struct dentry *lower_old_dentry = NULL;
 	struct dentry *lower_new_dentry = NULL;
@@ -329,6 +337,8 @@ out:
 
 static int trfs_readlink(struct dentry *dentry, char __user *buf, int bufsiz)
 {
+	printk("Trfs_Readlink called");
+
 	int err;
 	struct dentry *lower_dentry;
 	struct path lower_path;
@@ -355,6 +365,8 @@ out:
 static const char *trfs_get_link(struct dentry *dentry, struct inode *inode,
 				   struct delayed_call *done)
 {
+	printk("Trfs_Getlink called");
+
 	char *buf;
 	int len = PAGE_SIZE, err;
 	mm_segment_t old_fs;
@@ -386,6 +398,8 @@ static const char *trfs_get_link(struct dentry *dentry, struct inode *inode,
 
 static int trfs_permission(struct inode *inode, int mask)
 {
+	printk("Trfs_Permission called");
+
 	struct inode *lower_inode;
 	int err;
 
@@ -396,6 +410,8 @@ static int trfs_permission(struct inode *inode, int mask)
 
 static int trfs_setattr(struct dentry *dentry, struct iattr *ia)
 {
+	printk("Trfs_Setattr called");
+
 	int err;
 	struct dentry *lower_dentry;
 	struct inode *inode;
@@ -475,6 +491,8 @@ out_err:
 static int trfs_getattr(struct vfsmount *mnt, struct dentry *dentry,
 			  struct kstat *stat)
 {
+	printk("Trfs_Getattr called");
+
 	int err;
 	struct kstat lower_stat;
 	struct path lower_path;
@@ -496,6 +514,8 @@ static int
 trfs_setxattr(struct dentry *dentry, const char *name, const void *value,
 		size_t size, int flags)
 {
+	printk("Trfs_Setxattr called");
+
 	int err; struct dentry *lower_dentry;
 	struct path lower_path;
 
@@ -519,6 +539,8 @@ static ssize_t
 trfs_getxattr(struct dentry *dentry, const char *name, void *buffer,
 		size_t size)
 {
+	printk("Trfs_getxattr called");
+
 	int err;
 	struct dentry *lower_dentry;
 	struct path lower_path;
@@ -539,9 +561,10 @@ out:
 	return err;
 }
 
-static ssize_t
-trfs_listxattr(struct dentry *dentry, char *buffer, size_t buffer_size)
+static ssize_t trfs_listxattr(struct dentry *dentry, char *buffer, size_t buffer_size)
 {
+	printk("Trfs_listxattr called");
+	
 	int err;
 	struct dentry *lower_dentry;
 	struct path lower_path;
@@ -565,6 +588,8 @@ out:
 static int
 trfs_removexattr(struct dentry *dentry, const char *name)
 {
+	printk("Trfs_Removexattr called");
+
 	int err;
 	struct dentry *lower_dentry;
 	struct path lower_path;
