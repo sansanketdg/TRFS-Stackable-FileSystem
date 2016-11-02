@@ -295,12 +295,13 @@ struct dentry *trfs_lookup(struct inode *dir, struct dentry *dentry,
 	int err;
 	struct dentry *ret, *parent;
 	struct path lower_parent_path;
+	int *record_id;
 	
 	struct inode *temp_inode;
 	struct super_block *temp_sb;
 	struct trfs_tracefile_info *temp_tracefile;
 	unsigned long long temp_offset;
-
+	record_id=(int*)kmalloc(sizeof(int),GFP_KERNEL);
 	printk("before dentry anything\n");
 	if(dir != NULL){
 		//temp_inode = dentry->d_inode;
@@ -314,19 +315,22 @@ struct dentry *trfs_lookup(struct inode *dir, struct dentry *dentry,
 				printk("before trfs_sb_info\n");
 				if(trfs_sb != NULL){
 					temp_tracefile = trfs_sb->tracefile;
+					
 					printk("before tracefile\n");
 					if(temp_tracefile != NULL){
 						temp_offset = 10;
 						temp_offset = temp_tracefile->offset;
+						temp_tracefile->record_id++;
+						*record_id=temp_tracefile->record_id;
 						mm_segment_t oldfs;
    						int ret;
 
    						oldfs = get_fs();
    						set_fs(get_ds());
 						
-						char *data = kmalloc(sizeof(char)*20, GFP_KERNEL);
+						char *data = kmalloc(sizeof(char)*4, GFP_KERNEL);
 						memset(data, 0, 20);
-						strcpy(data, "GodZadozzza");
+						memcpy((void*)data, (void *)record_id, sizeof(int));
 						printk("data is %s\n size is %d\n", data, 20);
 						//struct file *temp_file = filp_open("/usr/src/test1.txt", O_CREAT | O_TRUNC | O_WRONLY, 0644);
 						//unsigned long long temp_offset = 0;
