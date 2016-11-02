@@ -89,6 +89,7 @@ struct trfs_dentry_info {
 struct trfs_tracefile_info {
 	struct file *filename;
 	unsigned long long offset;
+	int record_id;
 };
 
 /* trfs super-block data in memory */
