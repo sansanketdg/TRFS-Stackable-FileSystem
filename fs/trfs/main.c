@@ -20,6 +20,7 @@ int process_raw_data_and_create_the_file(char *temp_raw_data, struct super_block
 	mm_segment_t old_fs;
 	struct file *trace_file=NULL;
 	unsigned long long offset;
+	int record_id;
 	old_fs = get_fs();
 	set_fs(get_ds());
 	if (temp_raw_data==NULL)
@@ -35,13 +36,16 @@ int process_raw_data_and_create_the_file(char *temp_raw_data, struct super_block
 		printk("Count't create the file\n");
 		ret= PTR_ERR(trace_file);
 	}
+
 	offset=0;
+	record_id=0;
 	
 	sb_info = (struct trfs_sb_info *)kzalloc(sizeof(struct trfs_sb_info), GFP_KERNEL);
 	if(sb_info == NULL){
 		ret = -ENOMEM;
 		goto out;
 	}
+	
 	printk("Before sb info\n");
 	sb_info = (struct trfs_sb_info *)sb->s_fs_info;
 	if(sb_info == NULL){
@@ -50,7 +54,8 @@ int process_raw_data_and_create_the_file(char *temp_raw_data, struct super_block
 	}
 	sb_info->tracefile = (struct trfs_tracefile_info*)kzalloc(sizeof(struct trfs_tracefile_info) , GFP_KERNEL);
 	sb_info->tracefile->filename = trace_file;
-	sb_info->tracefile->offset = offset;	
+	sb_info->tracefile->offset = offset;
+	sb_info->tracefile->record_id = record_id;	
 	
 	printk("Reached successfully at the end of create trace file function\n");
 	out:

@@ -44,7 +44,7 @@ out:
 static int trfs_link(struct dentry *old_dentry, struct inode *dir,
 		       struct dentry *new_dentry)
 {
-	printk("Trfs_Link called");
+	//printk("Trfs_Link called");
 	
 	struct dentry *lower_old_dentry;
 	struct dentry *lower_new_dentry;
@@ -82,7 +82,7 @@ out:
 
 static int trfs_unlink(struct inode *dir, struct dentry *dentry)
 {
-	printk("Trfs_Unlink called");
+	//printk("Trfs_Unlink called");
 
 	int err;
 	struct dentry *lower_dentry;
@@ -150,16 +150,25 @@ out:
 
 static int trfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 {
-	printk("trfs_mkdir called\n");
+	
 	int err;
 	struct dentry *lower_dentry;
 	struct dentry *lower_parent_dentry = NULL;
+	int offset_d;
 	struct path lower_path;
-	struct inode *inode;
+	//struct inode *inode;
 	struct super_block *sb;
 	struct trfs_sb_info *trfs_sb_info;
 	unsigned long long offset;
 	struct file *filename=NULL;
+	char *data=NULL;
+	
+	mm_segment_t oldfs;
+	int retVal;
+	struct trfs_record *sample_record = NULL;
+
+	printk("trfs_mkdir called\n");
+
 	trfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
 	lower_parent_dentry = lock_parent(lower_dentry);
@@ -167,7 +176,7 @@ static int trfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 
 	printk("Inode passed\n");
 	sb=dir->i_sb;
-	trfs_sb_info=(struct trfs_sb_info*)kzalloc(sizeof(struct trfs_sb_info),GFP_KERNEL);
+	//trfs_sb_info=(struct trfs_sb_info*)kzalloc(sizeof(struct trfs_sb_info),GFP_KERNEL);
 	trfs_sb_info=(struct trfs_sb_info*)sb->s_fs_info;
 	printk("Sb passed");
 	offset=10;
@@ -178,21 +187,80 @@ static int trfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 					if(filename != NULL){
 						//temp_offset = 10;
 						//temp_offset = temp_tracefile->offset;
-						mm_segment_t oldfs;
-   						int ret;
 
    						oldfs = get_fs();
    						set_fs(get_ds());
 						
-						char *data;
-						data= kzalloc(sizeof(char)*11, GFP_KERNEL);
+						//char *data;
+						//data= kzalloc(sizeof(char)*17, GFP_KERNEL);
+						sample_record= kzalloc(sizeof(struct trfs_record), GFP_KERNEL);
+						if(sample_record == NULL){
+							err = -ENOMEM;
+							goto out;
+						}
 					//	memset(data, 0, 10);
-						strcpy(data,"Mkdir Called");
+						sample_record->record_id = trfs_sb_info->tracefile->record_id++;
+						printk("**Before dentry d_name.name \n");
+						sample_record->pathname_size = strlen(dentry->d_name.name);
+						printk("pathname size is %d and path name is %s\n", sample_record->pathname_size, dentry->d_name.name);
+						sample_record->pathname = kmalloc(sizeof(char)*sample_record->pathname_size, GFP_KERNEL);
+						if(sample_record->pathname == NULL){
+							err = -ENOMEM;
+							goto out;
+						}
+						memcpy((void *)sample_record->pathname, (void *)dentry->d_name.name, sample_record->pathname_size);
+						printk("Path name in record after memcpy is %s\n", sample_record->pathname);
+						sample_record->record_size = sizeof(sample_record->record_id) + sizeof(sample_record->record_size) + sizeof(sample_record->record_type)
+												 + sizeof(sample_record->open_flags) + sizeof(sample_record->permission_mode) 
+												 + sizeof(sample_record->pathname_size) + sample_record->pathname_size 
+												 + sizeof(sample_record->return_value);
+						
+						sample_record->record_type = 'c'; //char 0 will represent 
+						sample_record->open_flags = 10;
+						sample_record->permission_mode = 11;
+						sample_record->return_value = 1;
+
+						printk("Sample Record -\n");
+						printk("record_id is %d\n", sample_record->record_id);
+						printk("record_size is %d\n", sample_record->record_size);
+						printk("record_type is %c\n", sample_record->record_type);
+						printk("return_value is %d\n", sample_record->return_value);
+
+						data= kzalloc(sample_record->record_size, GFP_KERNEL);
+						//data_offset = data;
+						offset_d = 0;
+						memcpy((void *)(data + offset_d), (void *)&sample_record->record_id, sizeof(int));
+						offset_d = offset_d + sizeof(int);
+
+						memcpy((void *)(data + offset_d), (void *)&sample_record->record_size, sizeof(short));
+						offset_d = offset_d + sizeof(short);
+
+						memcpy((void *)(data + offset_d), (void *)&sample_record->record_type, sizeof(char));
+						offset_d = offset_d + sizeof(char);
+
+						memcpy((void *)(data + offset_d), (void *)&sample_record->open_flags, sizeof(int));
+						offset_d = offset_d + sizeof(int);
+
+						memcpy((void *)(data + offset_d), (void *)&sample_record->permission_mode, sizeof(int));
+						offset_d = offset_d + sizeof(int);
+
+						memcpy((void *)(data + offset_d), (void *)&sample_record->pathname_size, sizeof(short));
+						offset_d = offset_d + sizeof(short);
+
+						memcpy((void *)(data + offset_d), (void *)sample_record->pathname, sample_record->pathname_size);
+						offset_d = offset_d + sample_record->pathname_size;
+
+						memcpy((void *)(data + offset_d), (void *)&sample_record->return_value, sizeof(int));
+						//offset_d = offset_d + sizeof(short);										
+
+						printk("data is %s\n", data);
+						//strcpy(data,"0Mkdir Called 123");
 						//struct file *temp_file = filp_open("/usr/src/test1.txt", O_CREAT | O_TRUNC | O_WRONLY, 0644);
 						//unsigned long long temp_offset = 0;
-						ret = vfs_write(filename, data, strlen(data),& offset);
-						printk("number of bytes written %d\n", ret);
-    						set_fs(oldfs);
+
+						retVal = vfs_write(filename, data, sample_record->record_size,&offset);
+						printk("number of bytes written %d\n", retVal);
+    					set_fs(oldfs);
 						//filp_close(temp_file, NULL);
 					}
 	
@@ -212,12 +280,22 @@ static int trfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 out:
 	unlock_dir(lower_parent_dentry);
 	trfs_put_lower_path(dentry, &lower_path);
+	//if(data)
+	//	kfree(data);
+	if(sample_record){
+		if(sample_record->pathname){
+			kfree(sample_record->pathname);
+		}
+		kfree(sample_record);
+	}
+	if(data)
+		kfree(data);
 	return err;
 }
 
 static int trfs_rmdir(struct inode *dir, struct dentry *dentry)
 {
-	printk("Trfs_Rmdir called");
+	//printk("Trfs_Rmdir called");
 
 	struct dentry *lower_dentry;
 	struct dentry *lower_dir_dentry;
@@ -248,7 +326,7 @@ out:
 static int trfs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode,
 			dev_t dev)
 {
-	printk("Trfs_Mknod called");
+	//printk("Trfs_Mknod called");
 	
 	int err;
 	struct dentry *lower_dentry;
@@ -282,7 +360,7 @@ out:
 static int trfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 			 struct inode *new_dir, struct dentry *new_dentry)
 {
-	printk("Trfs_rename called");
+	//printk("Trfs_rename called");
 
 	int err = 0;
 	struct dentry *lower_old_dentry = NULL;
@@ -337,7 +415,7 @@ out:
 
 static int trfs_readlink(struct dentry *dentry, char __user *buf, int bufsiz)
 {
-	printk("Trfs_Readlink called");
+	//printk("Trfs_Readlink called");
 
 	int err;
 	struct dentry *lower_dentry;
@@ -365,7 +443,7 @@ out:
 static const char *trfs_get_link(struct dentry *dentry, struct inode *inode,
 				   struct delayed_call *done)
 {
-	printk("Trfs_Getlink called");
+	//printk("Trfs_Getlink called");
 
 	char *buf;
 	int len = PAGE_SIZE, err;
@@ -398,7 +476,7 @@ static const char *trfs_get_link(struct dentry *dentry, struct inode *inode,
 
 static int trfs_permission(struct inode *inode, int mask)
 {
-	printk("Trfs_Permission called");
+	//printk("Trfs_Permission called");
 
 	struct inode *lower_inode;
 	int err;
@@ -410,7 +488,7 @@ static int trfs_permission(struct inode *inode, int mask)
 
 static int trfs_setattr(struct dentry *dentry, struct iattr *ia)
 {
-	printk("Trfs_Setattr called");
+	//printk("Trfs_Setattr called");
 
 	int err;
 	struct dentry *lower_dentry;
@@ -491,7 +569,7 @@ out_err:
 static int trfs_getattr(struct vfsmount *mnt, struct dentry *dentry,
 			  struct kstat *stat)
 {
-	printk("Trfs_Getattr called");
+	//printk("Trfs_Getattr called");
 
 	int err;
 	struct kstat lower_stat;
@@ -514,7 +592,7 @@ static int
 trfs_setxattr(struct dentry *dentry, const char *name, const void *value,
 		size_t size, int flags)
 {
-	printk("Trfs_Setxattr called");
+	//printk("Trfs_Setxattr called");
 
 	int err; struct dentry *lower_dentry;
 	struct path lower_path;
@@ -539,7 +617,7 @@ static ssize_t
 trfs_getxattr(struct dentry *dentry, const char *name, void *buffer,
 		size_t size)
 {
-	printk("Trfs_getxattr called");
+	//printk("Trfs_getxattr called");
 
 	int err;
 	struct dentry *lower_dentry;
@@ -563,7 +641,7 @@ out:
 
 static ssize_t trfs_listxattr(struct dentry *dentry, char *buffer, size_t buffer_size)
 {
-	printk("Trfs_listxattr called");
+	//printk("Trfs_listxattr called");
 	
 	int err;
 	struct dentry *lower_dentry;
@@ -588,7 +666,7 @@ out:
 static int
 trfs_removexattr(struct dentry *dentry, const char *name)
 {
-	printk("Trfs_Removexattr called");
+	//printk("Trfs_Removexattr called");
 
 	int err;
 	struct dentry *lower_dentry;

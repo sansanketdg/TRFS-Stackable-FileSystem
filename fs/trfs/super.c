@@ -20,12 +20,25 @@ static struct kmem_cache *trfs_inode_cachep;
 /* final actions when unmounting a file system */
 static void trfs_put_super(struct super_block *sb)
 {
+	struct trfs_sb_info *trfs_sb_ptr;
+
 	struct trfs_sb_info *spd;
 	struct super_block *s;
+
+	printk("inside trfs_put_super\n");
 
 	spd = TRFS_SB(sb);
 	if (!spd)
 		return;
+
+	/*close file from tracefile_info struct in sb*/
+	trfs_sb_ptr = (struct trfs_sb_info *)sb->s_fs_info;
+
+	if(trfs_sb_ptr != NULL){
+		filp_close(trfs_sb_ptr->tracefile->filename, 0);
+		kfree(trfs_sb_ptr->tracefile);
+		printk("Successsfuly closed the file and kfreed the trfs_struct\n");
+	}
 
 	/* decrement lower super references */
 	s = trfs_lower_super(sb);
