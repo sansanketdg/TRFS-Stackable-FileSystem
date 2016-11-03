@@ -55,7 +55,8 @@ int process_raw_data_and_create_the_file(char *temp_raw_data, struct super_block
 	sb_info->tracefile = (struct trfs_tracefile_info*)kzalloc(sizeof(struct trfs_tracefile_info) , GFP_KERNEL);
 	sb_info->tracefile->filename = trace_file;
 	sb_info->tracefile->offset = offset;
-	sb_info->tracefile->record_id = record_id;	
+	sb_info->tracefile->record_id = record_id;
+	mutex_init(&sb_info->tracefile->record_lock);
 	
 	printk("Reached successfully at the end of create trace file function\n");
 	out:

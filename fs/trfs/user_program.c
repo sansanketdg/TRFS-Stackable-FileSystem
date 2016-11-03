@@ -1,17 +1,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-struct trfs_record
-{
-	int record_id;
-	unsigned short record_size;
-	unsigned char record_type;
-	int open_flags;
-	int permission_mode;
-	short pathname_size;
-	char *pathname;
-	int return_value;
-};
+#include "record.h"
+// struct trfs_record
+// {
+// 	int record_id;
+// 	unsigned short record_size;
+// 	unsigned char record_type;
+// 	int open_flags;
+// 	int permission_mode;
+// 	short pathname_size;
+// 	char *pathname;
+// 	int return_value;
+
+// 	unsigned char mybitmap;
+// };
 
 void main(){
 	FILE *fileptr;
@@ -55,6 +58,9 @@ void main(){
 
 	memcpy((void *)&samplerecord->return_value, (void *)(buffer + buffer_offset), sizeof(int));
 	buffer_offset = buffer_offset + sizeof(int);
+
+	memcpy((void *)&samplerecord->mybitmap, (void *)(buffer + buffer_offset), sizeof(char));
+	buffer_offset = buffer_offset + sizeof(char);
 	
 	
 	printf("Record_id is %d\n", samplerecord->record_id);
@@ -65,6 +71,7 @@ void main(){
 	printf("pathname_size is %d\n", samplerecord->pathname_size);
 	printf("Pathname is %s\n", samplerecord->pathname);
 	printf("return_value is %d\n", samplerecord->return_value);
+	printf("mybitmap is %d\n", samplerecord->mybitmap);
 
 
 	fclose(fileptr); // Close the file

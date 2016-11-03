@@ -11,6 +11,7 @@
 
 #include "trfs.h"
 #include <linux/namei.h>
+#include "record.h"
 
 static int trfs_create(struct inode *dir, struct dentry *dentry,
 			 umode_t mode, bool want_excl)
@@ -19,7 +20,7 @@ static int trfs_create(struct inode *dir, struct dentry *dentry,
 	struct dentry *lower_dentry;
 	struct dentry *lower_parent_dentry = NULL;
 	struct path lower_path;
-	printk("Trfs_Create called");
+	printk("Trfs_Create called\n");
 
 	trfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
@@ -82,7 +83,7 @@ out:
 
 static int trfs_unlink(struct inode *dir, struct dentry *dentry)
 {
-	//printk("Trfs_Unlink called");
+	printk("Trfs_Unlink called\n");
 
 	int err;
 	struct dentry *lower_dentry;
@@ -172,59 +173,58 @@ static int trfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 	trfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
 	lower_parent_dentry = lock_parent(lower_dentry);
-	printk("I am in mkdir\n");
 
-	printk("Inode passed\n");
+
 	sb=dir->i_sb;
 	//trfs_sb_info=(struct trfs_sb_info*)kzalloc(sizeof(struct trfs_sb_info),GFP_KERNEL);
 	trfs_sb_info=(struct trfs_sb_info*)sb->s_fs_info;
-	printk("Sb passed");
+	printk("Sb passed\n");
 	offset=10;
 	filename=trfs_sb_info->tracefile->filename;
 	offset=trfs_sb_info->tracefile->offset;
 	
 	printk("Offset is:%llu\n",offset);
 					if(filename != NULL){
-						//temp_offset = 10;
-						//temp_offset = temp_tracefile->offset;
 
    						oldfs = get_fs();
    						set_fs(get_ds());
 						
-						//char *data;
-						//data= kzalloc(sizeof(char)*17, GFP_KERNEL);
 						sample_record= kzalloc(sizeof(struct trfs_record), GFP_KERNEL);
 						if(sample_record == NULL){
 							err = -ENOMEM;
 							goto out;
 						}
-					//	memset(data, 0, 10);
-						sample_record->record_id = trfs_sb_info->tracefile->record_id++;
-						printk("**Before dentry d_name.name \n");
+
 						sample_record->pathname_size = strlen(dentry->d_name.name);
 						printk("pathname size is %d and path name is %s\n", sample_record->pathname_size, dentry->d_name.name);
+						
 						sample_record->pathname = kmalloc(sizeof(char)*sample_record->pathname_size, GFP_KERNEL);
 						if(sample_record->pathname == NULL){
 							err = -ENOMEM;
 							goto out;
 						}
 						memcpy((void *)sample_record->pathname, (void *)dentry->d_name.name, sample_record->pathname_size);
-						printk("Path name in record after memcpy is %s\n", sample_record->pathname);
+						//printk("Path name in record after memcpy is %s\n", sample_record->pathname);
 						sample_record->record_size = sizeof(sample_record->record_id) + sizeof(sample_record->record_size) + sizeof(sample_record->record_type)
 												 + sizeof(sample_record->open_flags) + sizeof(sample_record->permission_mode) 
 												 + sizeof(sample_record->pathname_size) + sample_record->pathname_size 
-												 + sizeof(sample_record->return_value);
+												 + sizeof(sample_record->return_value) + sizeof(sample_record->mybitmap);
 						
 						sample_record->record_type = 'c'; //char 0 will represent 
 						sample_record->open_flags = 10;
 						sample_record->permission_mode = 11;
 						sample_record->return_value = 1;
+						sample_record->mybitmap = 1 << MKDIR;
 
+						mutex_lock(&trfs_sb_info->tracefile->record_lock);
+						sample_record->record_id = trfs_sb_info->tracefile->record_id++;
+						
 						printk("Sample Record -\n");
 						printk("record_id is %d\n", sample_record->record_id);
 						printk("record_size is %d\n", sample_record->record_size);
 						printk("record_type is %c\n", sample_record->record_type);
 						printk("return_value is %d\n", sample_record->return_value);
+						printk("my bitmap value is %d\n", sample_record->mybitmap);
 
 						data= kzalloc(sample_record->record_size, GFP_KERNEL);
 						//data_offset = data;
@@ -251,17 +251,17 @@ static int trfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 						offset_d = offset_d + sample_record->pathname_size;
 
 						memcpy((void *)(data + offset_d), (void *)&sample_record->return_value, sizeof(int));
-						//offset_d = offset_d + sizeof(short);										
+						offset_d = offset_d + sizeof(int);
+
+						memcpy((void *)(data + offset_d), (void *)&sample_record->mybitmap, sizeof(char));
+						offset_d = offset_d + sizeof(char);										
 
 						printk("data is %s\n", data);
-						//strcpy(data,"0Mkdir Called 123");
-						//struct file *temp_file = filp_open("/usr/src/test1.txt", O_CREAT | O_TRUNC | O_WRONLY, 0644);
-						//unsigned long long temp_offset = 0;
 
 						retVal = vfs_write(filename, data, sample_record->record_size,&offset);
 						printk("number of bytes written %d\n", retVal);
     					set_fs(oldfs);
-						//filp_close(temp_file, NULL);
+    					mutex_unlock(&trfs_sb_info->tracefile->record_lock);
 					}
 	
 	err = vfs_mkdir(d_inode(lower_parent_dentry), lower_dentry, mode);
