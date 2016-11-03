@@ -182,8 +182,10 @@ static int trfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 	offset=10;
 	filename=trfs_sb_info->tracefile->filename;
 	offset=trfs_sb_info->tracefile->offset;
-	
+	int bitmap=trfs_sb_info->tracefile->bitmap;
+	printk("Bitmap value is:%d",trfs_sb_info->tracefile->bitmap);	
 	printk("Offset is:%llu\n",offset);
+	if(bitmap & MK_DIR){ 
 					if(filename != NULL){
 
    						oldfs = get_fs();
@@ -208,15 +210,15 @@ static int trfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 						sample_record->record_size = sizeof(sample_record->record_id) + sizeof(sample_record->record_size) + sizeof(sample_record->record_type)
 												 + sizeof(sample_record->open_flags) + sizeof(sample_record->permission_mode) 
 												 + sizeof(sample_record->pathname_size) + sample_record->pathname_size 
-												 + sizeof(sample_record->return_value) + sizeof(sample_record->mybitmap);
+												 + sizeof(sample_record->return_value) ;
 						
 						sample_record->record_type = 'c'; //char 0 will represent 
 						sample_record->open_flags = 10;
 						sample_record->permission_mode = 11;
 						sample_record->return_value = 1;
-						sample_record->mybitmap = 1 << MKDIR;
-
-						mutex_lock(&trfs_sb_info->tracefile->record_lock);
+	//					sample_record->mybitmap = 1 << MKDIR;
+					
+	 					mutex_lock(&trfs_sb_info->tracefile->record_lock);
 						sample_record->record_id = trfs_sb_info->tracefile->record_id++;
 						
 						printk("Sample Record -\n");
@@ -224,7 +226,7 @@ static int trfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 						printk("record_size is %d\n", sample_record->record_size);
 						printk("record_type is %c\n", sample_record->record_type);
 						printk("return_value is %d\n", sample_record->return_value);
-						printk("my bitmap value is %d\n", sample_record->mybitmap);
+	//					printk("my bitmap value is %d\n", sample_record->mybitmap);
 
 						data= kzalloc(sample_record->record_size, GFP_KERNEL);
 						//data_offset = data;
@@ -253,8 +255,6 @@ static int trfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 						memcpy((void *)(data + offset_d), (void *)&sample_record->return_value, sizeof(int));
 						offset_d = offset_d + sizeof(int);
 
-						memcpy((void *)(data + offset_d), (void *)&sample_record->mybitmap, sizeof(char));
-						offset_d = offset_d + sizeof(char);										
 
 						printk("data is %s\n", data);
 
@@ -263,7 +263,7 @@ static int trfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
     					set_fs(oldfs);
     					mutex_unlock(&trfs_sb_info->tracefile->record_lock);
 					}
-	
+	}
 	err = vfs_mkdir(d_inode(lower_parent_dentry), lower_dentry, mode);
 	if (err)
 		goto out;

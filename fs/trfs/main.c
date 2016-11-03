@@ -56,6 +56,7 @@ int process_raw_data_and_create_the_file(char *temp_raw_data, struct super_block
 	sb_info->tracefile->filename = trace_file;
 	sb_info->tracefile->offset = offset;
 	sb_info->tracefile->record_id = record_id;
+	sb_info->tracefile->bitmap=1;
 	mutex_init(&sb_info->tracefile->record_lock);
 	
 	printk("Reached successfully at the end of create trace file function\n");
