@@ -92,6 +92,7 @@ struct trfs_tracefile_info {
 	unsigned long long offset;
 	int record_id;
 	struct mutex record_lock;
+	long bitmap;
 };
 
 /* trfs super-block data in memory */

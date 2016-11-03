@@ -11,5 +11,5 @@ struct trfs_record {
 	short pathname_size;
 	char *pathname;
 	int return_value;
-	unsigned char mybitmap;
+	
 };
