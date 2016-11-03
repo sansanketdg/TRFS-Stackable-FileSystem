@@ -229,7 +229,7 @@ static int trfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 	//					printk("my bitmap value is %d\n", sample_record->mybitmap);
 
 						data= kzalloc(sample_record->record_size, GFP_KERNEL);
-						//data_offset = data;
+					
 						offset_d = 0;
 						memcpy((void *)(data + offset_d), (void *)&sample_record->record_id, sizeof(int));
 						offset_d = offset_d + sizeof(int);
