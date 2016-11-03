@@ -69,10 +69,21 @@ static long trfs_unlocked_ioctl(struct file *file, unsigned int cmd,
 {
 	long err = -ENOTTY;
 	struct file *lower_file;
+	unsigned long *val;
+	val=kmalloc(sizeof(unsigned long),GFP_KERNEL);
+	//val=arg;
+	printk("trfs_ioctl called\n");
+	printk("Cmd is :%d\n",cmd);
+	printk("address is:%d\n",arg);
+
+	copy_from_user(val, arg, sizeof(val));
+	
+	printk("value is:%d\n",*val);
+//	copy_from_user(val,arg,sizeof(unsigned long));
 
 	lower_file = trfs_lower_file(file);
 
-	/* XXX: use vfs_ioctl if/when VFS exports it */
+/* XXX: use vfs_ioctl if/when VFS exports it */
 	if (!lower_file || !lower_file->f_op)
 		goto out;
 	if (lower_file->f_op->unlocked_ioctl)
@@ -83,6 +94,7 @@ static long trfs_unlocked_ioctl(struct file *file, unsigned int cmd,
 		fsstack_copy_attr_all(file_inode(file),
 				      file_inode(lower_file));
 out:
+	kfree(val);
 	return err;
 }
 
