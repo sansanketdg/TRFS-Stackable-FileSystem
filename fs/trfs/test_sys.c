@@ -5,14 +5,13 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 #include <errno.h>
-#include "sys_xmergesort.h"
 
 #include <sys/types.h>
-       #include <sys/stat.h>
-       #include <fcntl.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 int main(int argc, char **argv)
 {
-        struct argument arg;
+        //struct argument arg;
 	//int flagentered;
 	int rc;
         char c;
@@ -20,8 +19,12 @@ int main(int argc, char **argv)
 	int index=0;
         int count=0;
         int k=0;
-	rc=open("/mnt/trfs/abc.txt", O_CREAT, 0644);
+	char *buff;
+	buff = malloc(52*sizeof(char));
+	rc = open("/mnt/trfs/hw1/Makefile", O_CREAT, 0644);
+	k = read(rc, buff, 52);
 	printf("%drc=",rc);
+	free(buff);
 /*        while ((c = getopt (argc, argv, "uaitd")) != -1)
     		switch (c)
       		{
