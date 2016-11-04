@@ -30,9 +30,11 @@ void main(){
 	int rc;
 	struct trfs_record *samplerecord;
 	fileptr = fopen("/usr/src/logfile.txt", "rb");  // Open the file in binary mode
-	fseek(fileptr, 0, SEEK_END);          // Jump to the end of the file
-	filelen = ftell(fileptr);             // Get the current byte offset in the file
-	rewind(fileptr);                      // Jump back to the beginning of the file
+	//fseek(fileptr, 0, SEEK_END);          // Jump to the end of the file
+	//filelen = ftell(fileptr);             // Get the current byte offset in the file
+	//rewind(fileptr);                      // Jump back to the beginning of the file
+
+
 	samplerecord=(struct trfs_record*)malloc(sizeof(struct trfs_record));
 	buffer = (char *)malloc((filelen+1)*sizeof(char)); // Enough memory for file + \0
 	fread(buffer, filelen, 1, fileptr); // Read in the entire file
@@ -40,11 +42,12 @@ void main(){
 	
 	int record_id = -1;
 	int buffer_offset = 0;
-	memcpy((void *)&samplerecord->record_id,(void *)(buffer + buffer_offset),  sizeof(int));
-	buffer_offset = buffer_offset + sizeof(int);
 
 	memcpy((void *)&samplerecord->record_size, (void *)(buffer + buffer_offset), sizeof(short));
 	buffer_offset = buffer_offset + sizeof(short);
+
+	memcpy((void *)&samplerecord->record_id,(void *)(buffer + buffer_offset),  sizeof(int));
+	buffer_offset = buffer_offset + sizeof(int);
 
 	memcpy((void *)&samplerecord->record_type, (void *)(buffer + buffer_offset), sizeof(char));
 	buffer_offset = buffer_offset + sizeof(char);

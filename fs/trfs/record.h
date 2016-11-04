@@ -1,7 +1,7 @@
-#define MK_DIR 2
-#define OPEN_TR 1
-#define READ_TR 3
-#define WRITE_TR 4
+#define MK_DIR 1
+#define OPEN_TR 2
+#define READ_TR 4
+#define WRITE_TR 8
 /* trfs record structure used to store to store in file*/
 struct trfs_record {
 	
