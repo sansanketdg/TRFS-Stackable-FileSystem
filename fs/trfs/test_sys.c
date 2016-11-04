@@ -21,10 +21,14 @@ int main(int argc, char **argv)
         int k=0;
 	char *buff;
 	buff = malloc(52*sizeof(char));
-	rc = open("/mnt/trfs/hw1/Makefile", O_CREAT, 0644);
+	rc = open("/mnt/trfs/hw1/Makefile", O_CREAT | O_RDONLY, 0644);
+  //rc1 = open("/mnt/trfs/demo.sh", O_CREAT | O_RDONLY, 0644);
 	k = read(rc, buff, 52);
-	printf("%drc=",rc);
+  //k = read(rc1, buff, 52);
+	printf("rc=%d\n",rc);
 	free(buff);
+  	close(rc);
+  //close(rc1);
 /*        while ((c = getopt (argc, argv, "uaitd")) != -1)
     		switch (c)
       		{

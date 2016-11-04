@@ -163,6 +163,7 @@ static int trfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 	unsigned long long offset;
 	struct file *filename=NULL;
 	char *data=NULL;
+	char *temp=NULL;
 	
 	mm_segment_t oldfs;
 	int retVal;
@@ -197,8 +198,14 @@ static int trfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 							goto out;
 						}
 
-						sample_record->pathname_size = strlen(dentry->d_name.name);
-						printk("pathname size is %d and path name is %s\n", sample_record->pathname_size, dentry->d_name.name);
+						temp = kmalloc(PAGE_SIZE, GFP_KERNEL);
+	                    //char *path = d_path(&file->f_path, temp, PAGE_SIZE);
+						char *path = dentry_path_raw(dentry, temp, PAGE_SIZE);
+
+	                    printk("Full Path is %s\n", path);
+
+						sample_record->pathname_size = strlen(path);
+						printk("pathname size is %d and path name is %s\n", sample_record->pathname_size, path);
 						
 						sample_record->pathname = kmalloc(sizeof(char)*sample_record->pathname_size, GFP_KERNEL);
 						if(sample_record->pathname == NULL){
@@ -208,11 +215,12 @@ static int trfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 						memcpy((void *)sample_record->pathname, (void *)dentry->d_name.name, sample_record->pathname_size);
 						//printk("Path name in record after memcpy is %s\n", sample_record->pathname);
 						sample_record->record_size = sizeof(sample_record->record_id) + sizeof(sample_record->record_size) + sizeof(sample_record->record_type)
-												 + sizeof(sample_record->open_flags) + sizeof(sample_record->permission_mode) 
-												 + sizeof(sample_record->pathname_size) + sample_record->pathname_size 
-												 + sizeof(sample_record->return_value) ;
+                                               + sizeof(sample_record->open_flags) + sizeof(sample_record->permission_mode)
+                                               + sizeof(sample_record->pathname_size) + sample_record->pathname_size 
+                                               + sizeof(sample_record->size)
+                                               + sizeof(sample_record->return_value) + sizeof(sample_record->file_address);
 						
-						sample_record->record_type = 'c'; //char 0 will represent 
+						sample_record->record_type = MK_DIR; //char 0 will represent 
 						sample_record->open_flags = 10;
 						sample_record->permission_mode = 11;
 						sample_record->return_value = 1;
@@ -231,11 +239,12 @@ static int trfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 						data= kzalloc(sample_record->record_size, GFP_KERNEL);
 					
 						offset_d = 0;
-						memcpy((void *)(data + offset_d), (void *)&sample_record->record_id, sizeof(int));
-						offset_d = offset_d + sizeof(int);
 
 						memcpy((void *)(data + offset_d), (void *)&sample_record->record_size, sizeof(short));
 						offset_d = offset_d + sizeof(short);
+
+						memcpy((void *)(data + offset_d), (void *)&sample_record->record_id, sizeof(int));
+						offset_d = offset_d + sizeof(int);
 
 						memcpy((void *)(data + offset_d), (void *)&sample_record->record_type, sizeof(char));
 						offset_d = offset_d + sizeof(char);
@@ -252,8 +261,14 @@ static int trfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 						memcpy((void *)(data + offset_d), (void *)sample_record->pathname, sample_record->pathname_size);
 						offset_d = offset_d + sample_record->pathname_size;
 
-						memcpy((void *)(data + offset_d), (void *)&sample_record->return_value, sizeof(int));
-						offset_d = offset_d + sizeof(int);
+						memcpy((void *)(data + offset_d), (void *)&sample_record->size, sizeof(unsigned long long));
+                        offset_d = offset_d + sizeof(unsigned long long);
+
+                        memcpy((void *)(data + offset_d), (void *)&sample_record->return_value, sizeof(int));
+                        offset_d = offset_d + sizeof(int);
+
+                        memcpy((void *)(data + offset_d), (void *)&sample_record->file_address, sizeof(unsigned long long));
+                        offset_d = offset_d + sizeof(unsigned long long);
 
 
 						printk("data is %s\n", data);
@@ -290,6 +305,8 @@ out:
 	}
 	if(data)
 		kfree(data);
+	if(temp)
+		kfree(temp);
 	return err;
 }
 

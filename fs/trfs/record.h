@@ -2,6 +2,7 @@
 #define OPEN_TR 2
 #define READ_TR 4
 #define WRITE_TR 8
+#define CLOSE_TR 16
 /* trfs record structure used to store to store in file*/
 struct trfs_record {
 	
