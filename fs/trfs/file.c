@@ -52,7 +52,6 @@ static ssize_t trfs_read(struct file *file, char __user *buf,
 		if(filename != NULL){
 
                     
-
                     sample_record= kzalloc(sizeof(struct trfs_record), GFP_KERNEL);
                     if(sample_record == NULL){
                             err = -ENOMEM;
@@ -75,33 +74,33 @@ static ssize_t trfs_read(struct file *file, char __user *buf,
                     memcpy((void *)sample_record->pathname, (void *)path, sample_record->pathname_size);
 
 
-				  sample_record->record_size = sizeof(sample_record->record_id) + sizeof(sample_record->record_size) + sizeof(sample_record->record_type)
+			sample_record->record_size = sizeof(sample_record->record_id) + sizeof(sample_record->record_size) + sizeof(sample_record->record_type)
                                                + sizeof(sample_record->open_flags) + sizeof(sample_record->permission_mode)
                                                + sizeof(sample_record->pathname_size) + sample_record->pathname_size 
                                                + sizeof(sample_record->size)
                                                + sizeof(sample_record->return_value) + sizeof(sample_record->file_address);
 
-						sample_record->record_type=READ_TR;
-						sample_record->open_flags = 0;
-                        sample_record->permission_mode = 0;
-                        sample_record->return_value = err;
+		sample_record->record_type=READ_TR;
+		sample_record->open_flags = 0;
+		sample_record->permission_mode = 0;
+                sample_record->return_value = err;
 						//sample_record->offset=kmalloc(sizeof(unsigned long),GFP_KERNEL);
 						//sample_record->offset=ppos;
-						sample_record->size=count;
-						sample_record->file_address = file;
+		sample_record->size=count;
+		sample_record->file_address = file;
 
-						mutex_lock(&trfs_sb_info->tracefile->record_lock);
-						sample_record->record_id = trfs_sb_info->tracefile->record_id++;
+		mutex_lock(&trfs_sb_info->tracefile->record_lock);
+		sample_record->record_id = trfs_sb_info->tracefile->record_id++;
 
-						data= kzalloc(sample_record->record_size, GFP_KERNEL);
+		data= kzalloc(sample_record->record_size, GFP_KERNEL);
 
-                            offset_d = 0;
+                offset_d = 0;
 
-                            memcpy((void *)(data + offset_d), (void *)&sample_record->record_size, sizeof(short));
-                            offset_d = offset_d + sizeof(short);
+                memcpy((void *)(data + offset_d), (void *)&sample_record->record_size, sizeof(short));
+                offset_d = offset_d + sizeof(short);
 
-                            memcpy((void *)(data + offset_d), (void *)&sample_record->record_id, sizeof(int));
-                            offset_d = offset_d + sizeof(int);
+                memcpy((void *)(data + offset_d), (void *)&sample_record->record_id, sizeof(int));
+                offset_d = offset_d + sizeof(int);
 
                             memcpy((void *)(data + offset_d), (void *)&sample_record->record_type, sizeof(char));
                             offset_d = offset_d + sizeof(char);
@@ -160,9 +159,32 @@ static ssize_t trfs_write(struct file *file, const char __user *buf,
 			    size_t count, loff_t *ppos)
 {
 	int err;
-
+	printk("Count:%lu",count);
 	struct file *lower_file;
 	struct dentry *dentry = file->f_path.dentry;
+	struct super_block *sb;
+        struct trfs_sb_info *trfs_sb_info;
+        unsigned long long offset;
+        struct file *filename=NULL;
+        char *data=NULL;
+        char *temp =NULL;
+        int offset_d=0;
+        mm_segment_t oldfs;
+        int retVal;
+        struct trfs_record *sample_record = NULL;
+	char* buffer;
+        printk("Trfs_write called\n");
+        sb=file->f_inode->i_sb;
+
+        trfs_sb_info=(struct trfs_sb_info*)sb->s_fs_info;
+        printk("Sb passed\n");
+        filename=trfs_sb_info->tracefile->filename;
+        offset=trfs_sb_info->tracefile->offset;
+        int bitmap=trfs_sb_info->tracefile->bitmap;
+        printk("Bitmap value is:%d",trfs_sb_info->tracefile->bitmap);
+        printk("Offset is:%lu\n",offset);
+
+
 
 	lower_file = trfs_lower_file(file);
 	err = vfs_write(lower_file, buf, count, ppos);
@@ -172,10 +194,129 @@ static ssize_t trfs_write(struct file *file, const char __user *buf,
 					file_inode(lower_file));
 		fsstack_copy_attr_times(d_inode(dentry),
 					file_inode(lower_file));
-	}
 
-	return err;
+		if(bitmap & WRITE_TR){
+
+                if(filename != NULL){
+
+
+		    buffer=kzalloc(count,GFP_KERNEL);
+		    copy_from_user((void*)buffer,(void*)buf,count);
+		   printk("Buffer is :%s",buffer);
+                    sample_record= kzalloc(sizeof(struct trfs_record), GFP_KERNEL);
+                    if(sample_record == NULL){
+                            err = -ENOMEM;
+                            goto out;
+                    }
+
+                    temp = kmalloc(PAGE_SIZE, GFP_KERNEL);
+                    char *path = d_path(&file->f_path, temp, PAGE_SIZE);
+
+                    printk("Full Path is %s\n", path);
+
+                    sample_record->pathname_size = strlen(path);
+                    printk("pathname size is %d and path name is %s\n", sample_record->pathname_size, path);
+
+                    sample_record->pathname = kmalloc(sizeof(char)*sample_record->pathname_size, GFP_KERNEL);
+                    if(sample_record->pathname == NULL){
+                            err = -ENOMEM;
+                            goto out;
+                    }
+                    memcpy((void *)sample_record->pathname, (void *)path, sample_record->pathname_size);
+		sample_record->record_size = sizeof(sample_record->record_id) + sizeof(sample_record->record_size) + sizeof(sample_record->record_type)
+                                               + sizeof(sample_record->open_flags) + sizeof(sample_record->permission_mode)
+                                               + sizeof(sample_record->pathname_size) + sample_record->pathname_size
+                                               + sizeof(sample_record->size)
+                                               + sizeof(sample_record->return_value) + sizeof(sample_record->file_address)+count;
+
+                sample_record->record_type=WRITE_TR;
+                sample_record->open_flags = 0;
+                sample_record->permission_mode = 0;
+                sample_record->return_value = err;
+		printk("before buff");
+		sample_record->wr_buff = kmalloc(count, GFP_KERNEL);
+		sample_record->size=count;
+		printk("Size is :%d",sample_record->size);
+
+                    if(sample_record->wr_buff == NULL){
+                            err = -ENOMEM;
+                            goto out;
+                    }
+		strcpy(sample_record->wr_buff,buffer);
+              //      memcpy((void *)sample_record->wr_buff, (void *)buffer, sample_record->size);
+        	printk("wr_buff is %s\n",sample_record->wr_buff);
+		
+                sample_record->file_address = file;
+	
+                mutex_lock(&trfs_sb_info->tracefile->record_lock);
+                sample_record->record_id = trfs_sb_info->tracefile->record_id++;
+
+                data= kzalloc(sample_record->record_size, GFP_KERNEL);
+
+                offset_d = 0;
+
+                memcpy((void *)(data + offset_d), (void *)&sample_record->record_size, sizeof(short));
+                offset_d = offset_d + sizeof(short);
+
+                memcpy((void *)(data + offset_d), (void *)&sample_record->record_id, sizeof(int));
+                offset_d = offset_d + sizeof(int);
+
+                            memcpy((void *)(data + offset_d), (void *)&sample_record->record_type, sizeof(char));
+                            offset_d = offset_d + sizeof(char);
+
+                            memcpy((void *)(data + offset_d), (void *)&sample_record->open_flags, sizeof(int));
+                            offset_d = offset_d + sizeof(int);
+
+                            memcpy((void *)(data + offset_d), (void *)&sample_record->permission_mode, sizeof(int));
+                            offset_d = offset_d + sizeof(int);
+
+                            memcpy((void *)(data + offset_d), (void *)&sample_record->pathname_size, sizeof(short));
+                            offset_d = offset_d + sizeof(short);
+
+                            memcpy((void *)(data + offset_d), (void *)sample_record->pathname, sample_record->pathname_size);
+                            offset_d = offset_d + sample_record->pathname_size;
+                              memcpy((void *)(data + offset_d), (void *)&sample_record->size, sizeof(unsigned long long));
+                            offset_d = offset_d + sizeof(unsigned long long);
+
+			memcpy((void *)(data + offset_d), (void *)sample_record->wr_buff, count);
+                            offset_d = offset_d + count;
+
+
+
+
+                            memcpy((void *)(data + offset_d), (void *)&sample_record->return_value, sizeof(int));
+                            offset_d = offset_d + sizeof(int);
+
+                            memcpy((void *)(data + offset_d), (void *)&sample_record->file_address, sizeof(unsigned long long));
+                            offset_d = offset_d + sizeof(unsigned long long);
+
+
+                            printk("data is %s\n", data);
+
+                            oldfs = get_fs();
+                                set_fs(get_ds());
+
+                            retVal = vfs_write(filename, data, sample_record->record_size,&offset);
+                            printk("number of bytes written %d\n", retVal);
+
+                            set_fs(oldfs);
+                            mutex_unlock(&trfs_sb_info->tracefile->record_lock);
+
+
+                                }
+                }
+        }
+out:
+        if(sample_record)
+                kfree(sample_record);
+        if(data)
+                kfree(data);
+        if(temp)
+                kfree(temp);
+        return err;
 }
+                                                                       
+
 
 static int trfs_readdir(struct file *file, struct dir_context *ctx)
 {
