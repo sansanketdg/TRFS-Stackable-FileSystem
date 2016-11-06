@@ -16,11 +16,73 @@ struct trfs_record {
 
 	//unsigned long long offset;
 	unsigned long long size;
-	
-	char *wr_buff;
-	
 
 	int return_value;
 	unsigned long long file_address;
+
+	char *wr_buff;
+};
+
+struct trfs_read_record {
+
+	unsigned short record_size;
+	unsigned char record_type;
 	
+	short pathname_size;
+	char *pathname;
+
+	unsigned long long size;
+
+	int return_value;
+	unsigned long long file_address;
+	int record_id;
+}; 
+
+struct trfs_write_record {
+
+	unsigned short record_size;
+	
+	unsigned char record_type;
+	
+	short pathname_size;
+	char *pathname;
+
+	unsigned long long size;
+
+	int return_value;
+	unsigned long long file_address;
+	int record_id;
+
+	char *wr_buff;
+};
+
+struct trfs_open_record {
+
+	unsigned short record_size;
+	unsigned char record_type;
+
+	int open_flags;
+	int permission_mode;
+
+	short pathname_size;
+	char *pathname;
+
+	int return_value;
+	unsigned long long file_address;
+
+	int record_id;
+};
+
+struct trfs_close_record {
+
+	unsigned short record_size;
+	unsigned char record_type;
+
+	short pathname_size;
+	char *pathname;
+
+	int return_value;
+	unsigned long long file_address;
+
+	int record_id;
 };

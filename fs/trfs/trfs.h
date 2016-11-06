@@ -8,7 +8,6 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-
 #ifndef _TRFS_H_
 #define _TRFS_H_
 
@@ -28,6 +27,9 @@
 #include <linux/xattr.h>
 #include <linux/exportfs.h>
 #include <linux/mutex.h>
+
+/* buffer size for wrting to file*/
+#define BUFFER_SIZE PAGE_SIZE
 
 /* the file system name */
 #define TRFS_NAME "trfs"
@@ -93,6 +95,8 @@ struct trfs_tracefile_info {
 	int record_id;
 	struct mutex record_lock;
 	long bitmap;
+	char *buffer;
+	int buffer_offset;
 };
 
 /* trfs super-block data in memory */

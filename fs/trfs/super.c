@@ -20,6 +20,8 @@ static struct kmem_cache *trfs_inode_cachep;
 /* final actions when unmounting a file system */
 static void trfs_put_super(struct super_block *sb)
 {
+	int retVal;
+	mm_segment_t oldfs;
 	struct trfs_sb_info *trfs_sb_ptr;
 
 	struct trfs_sb_info *spd;
@@ -34,11 +36,30 @@ static void trfs_put_super(struct super_block *sb)
 	/*close file from tracefile_info struct in sb*/
 	trfs_sb_ptr = (struct trfs_sb_info *)sb->s_fs_info;
 
+	//Flush all the buffer to the output file
+	mutex_lock(&trfs_sb_ptr->tracefile->record_lock);
+
+    oldfs = get_fs();
+	set_fs(get_ds());
+
+	//Flush the buffer to file and reset the offset to 0
+    retVal = vfs_write(trfs_sb_ptr->tracefile->filename, trfs_sb_ptr->tracefile->buffer, trfs_sb_ptr->tracefile->buffer_offset, &trfs_sb_ptr->tracefile->offset);
+ 	printk("number of bytes written %d\n", retVal);
+ 	trfs_sb_ptr->tracefile->buffer_offset = 0;
+
+    set_fs(oldfs);
+    mutex_unlock(&trfs_sb_ptr->tracefile->record_lock);
+
 	if(trfs_sb_ptr != NULL){
 		filp_close(trfs_sb_ptr->tracefile->filename, 0);
-		kfree(trfs_sb_ptr->tracefile);
-		printk("Successsfuly closed the file and kfreed the trfs_struct\n");
+		if(trfs_sb_ptr->tracefile->buffer)
+			kfree(trfs_sb_ptr->tracefile->buffer);
+		if(trfs_sb_ptr->tracefile)
+			kfree(trfs_sb_ptr->tracefile);
+		printk("Successsfuly closed the trace-file and freed all the buffers\n");
 	}
+
+	
 
 	/* decrement lower super references */
 	s = trfs_lower_super(sb);

@@ -46,7 +46,6 @@ int process_raw_data_and_create_the_file(char *temp_raw_data, struct super_block
 		goto out;
 	}
 	
-	printk("Before sb info\n");
 	sb_info = (struct trfs_sb_info *)sb->s_fs_info;
 	if(sb_info == NULL){
 		printk("Somehow sb_info is NULL\n");
@@ -58,8 +57,20 @@ int process_raw_data_and_create_the_file(char *temp_raw_data, struct super_block
 	sb_info->tracefile->record_id = record_id;
 	sb_info->tracefile->bitmap=1;
 	mutex_init(&sb_info->tracefile->record_lock);
+
+	//malloc the buffer with BUFFER_SIZE and set offset to 0
+	sb_info->tracefile->buffer = (char *)kzalloc(BUFFER_SIZE*2, GFP_KERNEL);
+	if(sb_info->tracefile->buffer == NULL){
+		printk("Coudnt allocate buffer for BUFFER_SIZE\n");
+		ret = -ENOMEM;
+		goto free_tracefile;
+	}
+	sb_info->tracefile->buffer_offset = 0;
+	goto out;
 	
-	printk("Reached successfully at the end of create trace file function\n");
+	free_tracefile:
+		if(sb_info->tracefile)
+			kfree(sb_info->tracefile);
 	out:
 		return ret;
 }
