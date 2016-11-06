@@ -60,7 +60,7 @@ static ssize_t trfs_read(struct file *file, char __user *buf,
                 goto out;
             }
 
-            path = d_path(&file->f_path, temp, BUFFER_SIZE);
+            path = dentry_path_raw(file->f_path.dentry, temp, BUFFER_SIZE);
             sample_record->pathname_size = strlen(path);
 
             sample_record->pathname = kmalloc(sizeof(char)*sample_record->pathname_size, GFP_KERNEL);
@@ -105,9 +105,6 @@ static ssize_t trfs_read(struct file *file, char __user *buf,
             memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_size, sizeof(short));
             trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(short);
 
-            memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_id, sizeof(int));
-            trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(int);
-
             memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_type, sizeof(char));
             trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(char);
 
@@ -126,7 +123,9 @@ static ssize_t trfs_read(struct file *file, char __user *buf,
             memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->file_address, sizeof(unsigned long long));
             trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(unsigned long long);
 
-                      
+            memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_id, sizeof(int));
+            trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(int);          
+            
             mutex_unlock(&trfs_sb_info->tracefile->record_lock);
 		}
 	}
@@ -185,7 +184,11 @@ static ssize_t trfs_write(struct file *file, const char __user *buf,
 
         	sample_record= kzalloc(sizeof(struct trfs_write_record), GFP_KERNEL);
         	temp = kmalloc(BUFFER_SIZE, GFP_KERNEL);
-            path = d_path(&file->f_path, temp, BUFFER_SIZE);
+        	if(temp == NULL){
+                err = -ENOMEM;
+                goto out;
+            }
+            path = dentry_path_raw(file->f_path.dentry, temp, BUFFER_SIZE);
 
             sample_record->pathname_size = strlen(path);
 
@@ -485,7 +488,7 @@ out:
 static int trfs_open(struct inode *inode, struct file *file)
 {
 	int err = 0, bitmap, retVal;
-	char *temp;
+	char *temp, *path;
 
     struct file *lower_file;
     struct path lower_path;
@@ -548,7 +551,7 @@ static int trfs_open(struct inode *inode, struct file *file)
                 goto out_err;
             }
 			temp = kmalloc(BUFFER_SIZE, GFP_KERNEL);
-            char *path = d_path(&file->f_path, temp, BUFFER_SIZE);
+            path = dentry_path_raw(file->f_path.dentry, temp, BUFFER_SIZE);
 
             sample_record->pathname_size = strlen(path);
 
@@ -649,7 +652,7 @@ static int trfs_flush(struct file *file, fl_owner_t id)
 
     struct trfs_sb_info *trfs_sb_info;
     struct file *filename;
-    char *temp;
+    char *temp, *path;
     mm_segment_t oldfs;
     int retVal,bitmap;
     struct trfs_close_record *sample_record;
@@ -683,7 +686,7 @@ static int trfs_flush(struct file *file, fl_owner_t id)
 	            goto out_err;
 	    	}
 	    	temp = kmalloc(BUFFER_SIZE, GFP_KERNEL);
-	    	char *path = d_path(&file->f_path, temp, BUFFER_SIZE);
+	    	path = dentry_path_raw(file->f_path.dentry, temp, BUFFER_SIZE);
 
 	    	sample_record->pathname_size = strlen(path);
 

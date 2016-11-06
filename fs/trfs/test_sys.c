@@ -25,8 +25,12 @@ int main(int argc, char **argv)
   //rc1 = open("/mnt/trfs/demo.sh", O_CREAT | O_RDONLY, 0644);
 	k = read(rc, buff, 12);
 	k = write(rc, buff, 12);
+
+  //rc = link("/mnt/trfs/hw1/test_hw2.txt", "/mnt/trfs/hw1/test_hw2_link.txt");
   //k = read(rc1, buff, 52);
+  //rc = mkdir("/mnt/trfs/hw1/test_hw2_mkdir", 0777);
 	printf("rc=%d\n",rc);
+
 	free(buff);
   close(rc);
   //close(rc1);
