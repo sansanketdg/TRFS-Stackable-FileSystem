@@ -6,86 +6,64 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include "record.h"
+// struct trfs_record
+// {
+// 	int record_id;
+// 	unsigned short record_size;
+// 	unsigned char record_type;
+// 	int open_flags;
+// 	int permission_mode;
+// 	short pathname_size;
+// 	char *pathname;
+// 	int return_value;
 
+// 	unsigned char mybitmap;
+// };
 
-typedef enum { false, true } bool;
-
-void printRecord(struct trfs_record *samplerecord){
-	printf("---------------------------------------------\n");
-	printf("Record_id : %d\n", samplerecord->record_id);
-	printf("Record_type : %d\n", (int)samplerecord->record_type);
-	printf("open_flags : %d\n", samplerecord->open_flags);
-	printf("permission_mode : %d\n", samplerecord->permission_mode);
-	printf("pathname_size : %d\n", samplerecord->pathname_size);
-	printf("pathname : %s\n", samplerecord->pathname);
-	printf("buffer size : %d\n", samplerecord->size);
-	printf("return_value : %d\n", samplerecord->return_value);
-	printf("file_address : %d\n", samplerecord->file_address);
-	switch((int)samplerecord->record_type){
-		case READ_TR:
-			printf("System call to be executed - read(2)\n");
-			break;
-		case OPEN_TR:
-			printf("System call to be executed - open(2)\n");
-			break;
-		case WRITE_TR:
-			printf("System call to be executed - write(2)\n");
-			break;
-		case CLOSE_TR:
-			printf("System call to be executed - close(2)\n");
-			break;
-	}
-}
-
-int main(int argc, char *argv[]){
-
-	int opt;
-	bool  n_flag = false;
-	bool s_flag = false;
+void main(){
 
 	int read_ret;
 	FILE *fileptr;
 	//char *buffer;
 	long filelen;
 	char *buff = NULL;
-	int rc=-1;
+	int rc;
 	size_t bytesRead = 0;
 	struct trfs_record *samplerecord;
 
-	int mapping_count = 0;
+	int count = 0;
 	int address, fd;
-	int **mapping_arr = NULL;
+	int **mapping_arr = 0;
 	int i;
 
-	while((opt = getopt(argc, argv, "ns")) != -1){
-		switch(opt){
-			case 'n':
-				n_flag = true;
-				break;
-			case 's':
-				s_flag = true;
-				break;
-		}
-	}
-	if(s_flag)
-		printf("s flag is set\n");
-	if(n_flag)
-		printf("n flag is set\n");
+	// while(count < 10){
+	// 	mapping_arr = (int **)realloc(mapping_arr, (count + 1)*sizeof(mapping_arr));
+	// 	if(mapping_arr == NULL){
+	// 		printf("No More memory TABLE\n");
+	// 		break;
+	// 	}
+	// 	mapping_arr[count] = (int *)malloc(2*sizeof(int));
+	// 	if(mapping_arr[count] == 0){
+	// 		printf("No More memory ROW\n");
+	// 	}
+	// 	mapping_arr[count][0] = count;
+	// 	mapping_arr[count][1] = count + 1;
+	// 	count++;
+	// }
 
-	if(s_flag && n_flag){
-		printf("Choose either of s or n flags....Both can't be set together\n");
-		return 0;
-	}
+	// for (i = 0; i < count; i++)
+ //        printf("(%d, %d)\n", mapping_arr[i][0], mapping_arr[i][1]);
 
-	printf("TFILE is %s\n", argv[optind]);
+ //    for (i = 0; i < count; i++)
+ //        free(mapping_arr[i]);
+ //    free(mapping_arr);
 	
 	
-	fileptr = fopen(argv[optind], "rb");  // Open the file in binary mode
-	if(fileptr == NULL){
-		printf("Coudn't open the trace file...Give valid path\n");
-		return 0;
-	}
-	
+	fileptr = fopen("/usr/src/logfile.txt", "rb");  // Open the file in binary mode
+	//fseek(fileptr, 0, SEEK_END);          // Jump to the end of the file
+	//filelen = ftell(fileptr);             // Get the current byte offset in the file
+	//rewind(fileptr);                      // Jump back to the beginning of the file
+
 	int loopc = 0;
 	unsigned short record_size;
 	while(bytesRead = fread(&record_size, sizeof(short), 1, fileptr) > 0){
@@ -94,7 +72,7 @@ int main(int argc, char *argv[]){
 		if(loopc >100){
 			break;
 		}
-		
+
 		//Read rest of this single record
 		buff = (char *)malloc(record_size - sizeof(short));
 		fread(buff, record_size - sizeof(short), 1, fileptr);
@@ -139,167 +117,84 @@ int main(int argc, char *argv[]){
 		memcpy((void *)&samplerecord->file_address, (void *)(buff + buffer_offset), sizeof(unsigned long long));
 		buffer_offset = buffer_offset + sizeof(unsigned long long);
 		
+		
+		
+		// printf("Record_size is %d\n", samplerecord->record_size);
+		printf("Record_id is %d\n", samplerecord->record_id);
+		printf("Record_type is %d\n", (int)samplerecord->record_type);
+		printf("open_flags is %d\n", samplerecord->open_flags);
+		printf("permission_mode is %d\n", samplerecord->permission_mode);
+		printf("pathname_size is %d\n", samplerecord->pathname_size);
+		printf("Pathname is %s\n", samplerecord->pathname);
+		printf("size is %d\n", samplerecord->size);
+		printf("return_value is %d\n", samplerecord->return_value);
+		printf("file_address is %d\n", samplerecord->file_address);
+
+		free(buff);
+
+		switch((int)samplerecord->record_type){
+			case READ_TR:
+				//call read_syscall
+				buff = malloc(samplerecord->size);
+				rc = open(samplerecord->pathname, O_CREAT | O_RDONLY, 0644);
+				read_ret = read(rc, buff, samplerecord->size);
+				close(rc);
+				break;
+			case OPEN_TR:
+				rc = open(samplerecord->pathname, samplerecord->open_flags, samplerecord->permission_mode);
+				//Create a row entry in mapping table
+					//mapping_arr = (int **)realloc(mapping_arr, (count + 1)*sizeof(mapping_arr));
+					//mapping_arr[count] = (int *)malloc(2*sizeof(int));
+				//Fill the row with address and corresponding fd
+					//mapping_arr[count][0] = samplerecord->file_address;
+					//mapping_arr[count][1] = rc;
+					//count++;
+				close(rc);
+				break;
+
+			case WRITE_TR:
+				buff = malloc(samplerecord->size);
+				rc = open(samplerecord->pathname, O_CREAT|O_APPEND|O_WRONLY, 0644);
+				strcpy(buff, samplerecord->wr_buff);
+				read_ret = write(rc, buff, samplerecord->size);
+				close(rc);
+				break;
+
+			case CLOSE_TR:
+	            rc = open(samplerecord->pathname, O_CREAT, 0644);
+				close(rc);
+				break;
+
+			default:
+				printf("Invalid record_type\n");
+		}
+
+		if(samplerecord){
+			if(samplerecord->pathname)
+				free(samplerecord->pathname);
+			if(samplerecord->wr_buff)
+				free(samplerecord->wr_buff);
+			free(samplerecord);
+		}
 		if(buff)
 			free(buff);
-
-		printRecord(samplerecord);
-		//if(n_flag){
-		//	printRecord(samplerecord);
-		//}
-		//else{
-		if(!n_flag){
-			switch((int)samplerecord->record_type){
-				case READ_TR:
-					//call read_syscall
-					buff = malloc(samplerecord->size);
-					
-					for(i = 0; i < mapping_count; i++){
-						if(mapping_arr[i][0] == samplerecord->file_address)
-							rc = mapping_arr[i][1];
-					}
-					
-					if(rc != -1 ){
-						printf("Reading the file\n");
-						read_ret = read(rc, buff, samplerecord->size);
-						printf("old read-return value is %d\n", samplerecord->return_value);
-						printf("new read-return value is %d\n", read_ret);
-						if(s_flag == true){
-							if(read_ret != samplerecord->return_value){
-								printf("Aborting the replay program...Deviation occured\n");
-								if(buff)
-									free(buff);
-								goto strict_clean_label;
-							}
-						}
-						printf("No of bytes read %d\n Should be equal to count %d\n", read_ret, samplerecord->size);
-					}
-					else if(s_flag == true){
-						printf("Aborting the replay program...Deviation occured\n");
-						if(buff)
-							free(buff);
-						goto strict_clean_label;
-					}
-
-					if(buff)
-						free(buff);
-					break;
-
-				case OPEN_TR:
-						printf("Opening the file\n");
-						rc = open(samplerecord->pathname, samplerecord->open_flags, samplerecord->permission_mode);
-						printf("Old file descriptor value is %d\n", samplerecord->return_value);
-						printf("New file descriptor value is %d\n", rc);
-						if(s_flag == true){
-							if(rc < 0){
-								//printf("old return value is %d\n", samplerecord->return_value);
-								//printf("new return value is %d\n", read_ret);
-								printf("Aborting the replay program...Deviation occured\n");
-								goto strict_clean_label;
-							}
-						}
-					//Create a row entry in mapping table
-						mapping_arr = (int **)realloc(mapping_arr, (mapping_count + 1)*sizeof(mapping_arr));
-						mapping_arr[mapping_count] = (int *)malloc(2*sizeof(int));
-					//Fill the row with address and corresponding fd
-						mapping_arr[mapping_count][0] = samplerecord->file_address;
-						mapping_arr[mapping_count][1] = rc;
-						mapping_count++;
-						printf("Mapping table entries count %d\n", mapping_count);	
-					break;
-
-				case WRITE_TR:
-					buff = malloc(samplerecord->size);
-					
-					for(i = 0; i < mapping_count; i++){
-						if(mapping_arr[i][0] == samplerecord->file_address)
-							rc = mapping_arr[i][1];
-					}
-					if(rc != -1){
-						strcpy(buff, samplerecord->wr_buff);
-						printf("Writing in the file\n");
-						read_ret = write(rc, buff, samplerecord->size);
-						printf("old write-return value is %d\n", samplerecord->return_value);
-						printf("new write-return value is %d\n", read_ret);
-						if(s_flag == true){
-							if(read_ret != samplerecord->return_value){
-								printf("Aborting the replay program...Deviation occured\n");
-								if(buff)
-									free(buff);
-								if(samplerecord->wr_buff)
-									free(samplerecord->wr_buff);
-								goto strict_clean_label;
-							}
-						}
-						printf("No of bytes written %d\n Should be equal to count %d\n", read_ret, samplerecord->size);
-					
-					}
-					else if(s_flag == true){
-						printf("Aborting the replay program...Deviation occured\n");
-						if(samplerecord->wr_buff)
-							free(samplerecord->wr_buff);
-						if(buff)
-							free(buff);
-						goto strict_clean_label;
-					}
-					
-					if(buff)
-						free(buff);
-					if(samplerecord->wr_buff)
-						free(samplerecord->wr_buff);
-					break;
-
-				case CLOSE_TR:
-		      
-					for(i = 0; i < mapping_count; i++){
-						if(mapping_arr[i][0] == samplerecord->file_address)
-							rc = mapping_arr[i][1];
-							mapping_arr[i][0] = 0;
-					}
-					if(rc != -1){
-						printf("Closing the file\n");
-						close(rc);	
-					}
-					else if(s_flag == true){
-						printf("Aborting the replay program...Deviation occured\n");
-						goto strict_clean_label;
-					}
-					break;
-
-				default:
-					printf("Invalid record_type\n");
-			}
-
-			if(samplerecord){
-				//printf("inside samplerecord\n");
-				if(samplerecord->pathname){
-					//printf("inside sample record -> pathname\n");
-					free(samplerecord->pathname);
-				}
-				free(samplerecord);
-			}
-		}
-
+		
 	}
-	goto normal_clean_label;
 	
-strict_clean_label:
-	//printf("Inside fuckin strict\n");
-	if(samplerecord){
-		if(samplerecord->pathname)
-			free(samplerecord->pathname);
-		free(samplerecord);
-	}
-normal_clean_label:
-	if(mapping_arr){
-		for (i = 0; i < mapping_count; i++){
-			if(mapping_arr[i]){
-         		free(mapping_arr[i]);
-			}
-		}
-    	free(mapping_arr);
-	}
+	//fread(&record_size, sizeof(short), 1, fileptr);
+	//printf("%d\n", record_size);
+
+	//buff = (char *)malloc(record_size - sizeof(short));
+	//fread(buff, record_size - sizeof(short), 1, fileptr);
+
+	//samplerecord=(struct trfs_record*)malloc(sizeof(struct trfs_record));
+	// buffer = (char *)malloc((filelen+1)*sizeof(char)); // Enough memory for file + \0
+	// fread(buffer, filelen, 1, fileptr); // Read in the entire file
+	// //printf("%s\n", buffer);
+
+	//int buffer_offset = 0;
 
 	fclose(fileptr); // Close the file
+	//free(buffer);
 	
-	return 0;
 }

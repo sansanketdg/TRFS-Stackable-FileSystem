@@ -30,7 +30,7 @@ int process_raw_data_and_create_the_file(char *temp_raw_data, struct super_block
 		goto out;
 	}	
 	
-	trace_file = filp_open(temp_raw_data, O_CREAT | O_APPEND| O_RDWR | O_TRUNC , 0644);
+	trace_file = filp_open(temp_raw_data, O_CREAT | O_WRONLY | O_TRUNC , 0644);
 	set_fs(old_fs);
 	if (IS_ERR(trace_file)) {
 		printk("Count't create the file\n");

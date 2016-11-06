@@ -11,10 +11,6 @@
 #include "record.h"
 #include "trfs.h"
 
-int thread_write_function(struct file *filename, char *data,  unsigned short record_size, unsigned long long *offset){
-
-}
-
 static ssize_t trfs_read(struct file *file, char __user *buf,
 			   size_t count, loff_t *ppos)
 {
@@ -38,7 +34,7 @@ static ssize_t trfs_read(struct file *file, char __user *buf,
 	trfs_sb_info=(struct trfs_sb_info*)sb->s_fs_info;
         printk("Sb passed\n");
         filename=trfs_sb_info->tracefile->filename;
-        //offset=trfs_sb_info->tracefile->offset;
+        offset=trfs_sb_info->tracefile->offset;
         int bitmap=trfs_sb_info->tracefile->bitmap;
         printk("Bitmap value is:%d",trfs_sb_info->tracefile->bitmap);
         printk("Offset is:%llu\n",offset);
@@ -139,7 +135,7 @@ static ssize_t trfs_read(struct file *file, char __user *buf,
                             oldfs = get_fs();
                     		set_fs(get_ds());
 
-                            retVal = vfs_write(filename, data, sample_record->record_size, &trfs_sb_info->tracefile->offset);
+                            retVal = vfs_write(filename, data, sample_record->record_size,&offset);
                             printk("number of bytes written %d\n", retVal);
 
                             set_fs(oldfs);
@@ -173,7 +169,7 @@ static ssize_t trfs_write(struct file *file, const char __user *buf,
 	struct dentry *dentry = file->f_path.dentry;
 	struct super_block *sb;
         struct trfs_sb_info *trfs_sb_info;
-        //unsigned long long offset;
+        unsigned long long offset;
         struct file *filename=NULL;
         char *data=NULL;
         char *temp =NULL;
@@ -188,7 +184,7 @@ static ssize_t trfs_write(struct file *file, const char __user *buf,
         trfs_sb_info=(struct trfs_sb_info*)sb->s_fs_info;
         printk("Sb passed\n");
         filename=trfs_sb_info->tracefile->filename;
-        //offset=trfs_sb_info->tracefile->offset;
+        offset=trfs_sb_info->tracefile->offset;
         int bitmap=trfs_sb_info->tracefile->bitmap;
         printk("Bitmap value is:%d",trfs_sb_info->tracefile->bitmap);
         printk("Offset is:%lu\n",offset);
@@ -305,7 +301,7 @@ static ssize_t trfs_write(struct file *file, const char __user *buf,
                             oldfs = get_fs();
                                 set_fs(get_ds());
 
-                            retVal = vfs_write(filename, data, sample_record->record_size, &trfs_sb_info->tracefile->offset);
+                            retVal = vfs_write(filename, data, sample_record->record_size,&offset);
                             printk("number of bytes written %d\n", retVal);
 
                             set_fs(oldfs);
@@ -489,7 +485,7 @@ static int trfs_open(struct inode *inode, struct file *file)
         struct path lower_path;
 	struct super_block *sb;
         struct trfs_sb_info *trfs_sb_info;
-        //unsigned long long offset;
+        unsigned long long offset;
 	struct file *filename=NULL;
         char *data=NULL;
         char *temp =NULL;
@@ -503,7 +499,7 @@ static int trfs_open(struct inode *inode, struct file *file)
 	printk("Got trfs sb pointer\n");
 	filename=trfs_sb_info->tracefile->filename;
 	printk("git filename\n");
-        //offset=trfs_sb_info->tracefile->offset;
+        offset=trfs_sb_info->tracefile->offset;
 	printk("Got offset\n");
 	bitmap=trfs_sb_info->tracefile->bitmap;
 	printk("gOt bitmap\n");
@@ -634,7 +630,7 @@ printk("Beginning the writing part\n");
                     oldfs = get_fs();
                     set_fs(get_ds());
 
-                    retVal = vfs_write(filename, data, sample_record->record_size, &trfs_sb_info->tracefile->offset);
+                    retVal = vfs_write(filename, data, sample_record->record_size,&offset);
                     printk("number of bytes written %d\n", retVal);
 
                     set_fs(oldfs);
@@ -673,7 +669,7 @@ static int trfs_flush(struct file *file, fl_owner_t id)
 	printk("trfs flush called\n");
 	struct super_block *sb;
         struct trfs_sb_info *trfs_sb_info;
-        //unsigned long long offset;
+        unsigned long long offset;
         struct file *filename=NULL;
         char *data=NULL;
         char *temp =NULL;
@@ -684,7 +680,7 @@ static int trfs_flush(struct file *file, fl_owner_t id)
         sb=file->f_inode->i_sb;
         trfs_sb_info=(struct trfs_sb_info*)sb->s_fs_info;
         filename=trfs_sb_info->tracefile->filename;
-        //offset=trfs_sb_info->tracefile->offset;
+        offset=trfs_sb_info->tracefile->offset;
         bitmap=trfs_sb_info->tracefile->bitmap;
 
 
@@ -729,8 +725,8 @@ static int trfs_flush(struct file *file, fl_owner_t id)
 	                                               + sizeof(sample_record->return_value) + sizeof(sample_record->file_address);
 
 	                    sample_record->record_type=CLOSE_TR;
-	                    sample_record->open_flags = 0;
-	                    sample_record->permission_mode = 0;
+	                    sample_record->open_flags = file->f_flags;
+	                    sample_record->permission_mode = file->f_mode;
 	                    printk(" Mode is: %d",sample_record->permission_mode);
 	                                        printk(" Flag is: %d",sample_record->open_flags);
 	                                        sample_record->return_value = err;
@@ -745,7 +741,7 @@ static int trfs_flush(struct file *file, fl_owner_t id)
 	                    data= kzalloc(sample_record->record_size, GFP_KERNEL);
 
 	                    offset_d = 0;
-	                    memcpy((void *)(data + offset_d), (void *)&sample_record->record_size, sizeof(short));
+	                                        memcpy((void *)(data + offset_d), (void *)&sample_record->record_size, sizeof(short));
 	                    offset_d = offset_d + sizeof(short);
 
 	                    memcpy((void *)(data + offset_d), (void *)&sample_record->record_id, sizeof(int));
@@ -783,7 +779,7 @@ static int trfs_flush(struct file *file, fl_owner_t id)
 	                    oldfs = get_fs();
 	                    set_fs(get_ds());
 
-	                    retVal = vfs_write(filename, data, sample_record->record_size,&trfs_sb_info->tracefile->offset);
+	                    retVal = vfs_write(filename, data, sample_record->record_size,&offset);
 	                    printk("number of bytes written %d\n", retVal);
 
 	                    set_fs(oldfs);
