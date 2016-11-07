@@ -21,16 +21,53 @@ int main(int argc, char **argv)
         int k=0;
 	char *buff;
 	buff = malloc(52*sizeof(char));
-	rc = open("/mnt/trfs/hw1/test_hw2.txt", O_CREAT | O_RDWR, 0644);
+	rc = open("/mnt/trfs/hw1/test_hw2.txt", O_CREAT | O_RDWR | O_APPEND, 0644);
+  //printf("rc=%d\n",rc);
   //rc1 = open("/mnt/trfs/demo.sh", O_CREAT | O_RDONLY, 0644);
 	k = read(rc, buff, 12);
-	k = write(rc, buff, 12);
+  k = write(rc, buff, 12);
 
-  //rc = link("/mnt/trfs/hw1/test_hw2.txt", "/mnt/trfs/hw1/test_hw2_link.txt");
+  rc = mkdir("/mnt/trfs/hw1/test_hw2_dir_1/", 0644);
+  printf("rc=%d\n",rc);
+  rc = rmdir("/mnt/trfs/hw1/test_hw2_dir_1/");
+  printf("rc=%d\n",rc);
+
+  // rc = mkdir("/usr/src/hw1-sdige/hw1/test_hw2_dir1", 0644);
+  // printf("rc=%d\n",rc);
+  // rc = rmdir("/usr/src/hw1-sdige/hw1/test_hw2_dir1");
+  // printf("rc=%d\n",rc);
+
+  // rc = mkdir("/usr/src/hw1-sdige/hw1/test_hw2_dir1", 0644);
+  // printf("rc=%d\n",rc);
+  // rc = rmdir("/usr/src/hw1-sdige/hw1/test_hw2_dir1");
+  // printf("rc=%d\n",rc);
+
+
+  rc = symlink("/mnt/trfs/hw1/test_hw2.txt", "/mnt/trfs/hw1/test_hw2_symlink11.txt");
+  printf("rc=%d\n",rc);
+
+  rc = unlink("/mnt/trfs/hw1/test_hw2_symlink11.txt");
+  printf("rc=%d\n",rc);
+
+
+
+
+  // rc = symlink("/usr/src/hw1-sdige/hw1/test_hw2.txt", "/usr/src/hw1-sdige/hw1/test_hw2_symlink10.txt");
+  // printf("rc=%d\n",rc);
+
+  // rc = unlink("/usr/src/hw1-sdige/hw1/test_hw2_symlink10.txt");
+  // printf("rc=%d\n",rc);
+
+  // rc = symlink("/usr/src/hw1-sdige/hw1/test_hw2.txt", "/usr/src/hw1-sdige/hw1/test_hw2_symlink10.txt");
+  // printf("rc=%d\n",rc);
+
+  // rc = unlink("/usr/src/hw1-sdige/hw1/test_hw2_symlink10.txt");
+  // printf("rc=%d\n",rc);
+
+
+
   //k = read(rc1, buff, 52);
-  //rc = mkdir("/mnt/trfs/hw1/test_hw2_mkdir", 0777);
-	printf("rc=%d\n",rc);
-
+	
 	free(buff);
   close(rc);
   //close(rc1);

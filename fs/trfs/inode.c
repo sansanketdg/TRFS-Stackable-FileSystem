@@ -103,7 +103,7 @@ out:
         trfs_sb_info=(struct trfs_sb_info*)sb->s_fs_info;
         filename=trfs_sb_info->tracefile->filename;
         bitmap=trfs_sb_info->tracefile->bitmap;
-        printk("Bitmap value is:%d\n",trfs_sb_info->tracefile->bitmap);
+     
 					
                 if(bitmap & LINK_TR)
                 {
@@ -137,13 +137,6 @@ out:
 
                                 sample_record->newpathsize = strlen(new_path);
                                 printk("pathname size is %d and path name is %s\n", sample_record->newpathsize, new_path);
-
-                                sample_record->newpath = kmalloc(sizeof(char)*sample_record->newpathsize, GFP_KERNEL);
-                                if(sample_record->newpath == NULL){
-                                        err = -ENOMEM;
-                                        goto out_err;
-                                                }
-                                strcpy(sample_record->newpath,new_path);
                                 
                                 
                                 sample_record->record_size = sizeof(sample_record->record_id) + sizeof(sample_record->record_size) + sizeof(sample_record->record_type)
@@ -174,8 +167,8 @@ out:
 					                memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_size, sizeof(short));
 	                                trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(short);
 
-	                                memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_type, sizeof(char));
-	                                trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(char);
+	                                memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_type, sizeof(int));
+	                                trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(int);
 
 
 	                                memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->oldpathsize, sizeof(short));
@@ -200,7 +193,7 @@ out:
 					                trfs_sb_info->tracefile->buffer_offset = 0;
 
 					                //Write the entire write-buf to the file 
-					                retVal = vfs_write(filename, sample_record->newpath, sample_record->newpathsize, &trfs_sb_info->tracefile->offset);
+					                retVal = vfs_write(filename, new_path, sample_record->newpathsize, &trfs_sb_info->tracefile->offset);
 					                printk("writing the new path directly to log file\n");
 
 					                set_fs(oldfs);
@@ -208,6 +201,13 @@ out:
 
             					}
             					else{
+
+            						sample_record->newpath = kmalloc(sizeof(char)*sample_record->newpathsize, GFP_KERNEL);
+	                                if(sample_record->newpath == NULL){
+	                                    err = -ENOMEM;
+	                                    goto out_err;
+	                                }
+	                                strcpy(sample_record->newpath,new_path);
 
             						if(trfs_sb_info->tracefile->buffer_offset + sample_record->record_size >= 2*BUFFER_SIZE){
 						                mutex_lock(&trfs_sb_info->tracefile->record_lock);
@@ -231,7 +231,7 @@ out:
 	                                printk("Sample Record -\n");
 	                                printk("record_id is %d\n", sample_record->record_id);
 	                                printk("record_size is %d\n", sample_record->record_size);
-	                                printk("record_type is %c\n", sample_record->record_type);
+	                                printk("record_type is %d\n", sample_record->record_type);
 	                                printk("return_value is %d\n", sample_record->return_value);
 
 
@@ -240,8 +240,8 @@ out:
 	                                memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_size, sizeof(short));
 	                                trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(short);
 
-	                                memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_type, sizeof(char));
-	                                trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(char);
+	                                memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_type, sizeof(int));
+	                                trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(int);
 
 
 	                                memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->oldpathsize, sizeof(short));
@@ -289,14 +289,24 @@ out_err:
 
 static int trfs_unlink(struct inode *dir, struct dentry *dentry)
 {
-	printk("Trfs_Unlink called\n");
 
 	int err;
 	struct dentry *lower_dentry;
 	struct inode *lower_dir_inode = trfs_lower_inode(dir);
 	struct dentry *lower_dir_dentry;
 	struct path lower_path;
+   	 struct super_block *sb;
+	struct trfs_sb_info *trfs_sb_info;
+	//unsigned long long offset;
+	struct file *filename=NULL;
+	char *temp=NULL;
+	int bitmap;
+	char *path;
+	mm_segment_t oldfs;
+	int retVal;
+	struct trfs_unlink_record *sample_record = NULL;
 
+	printk("Trfs_Unlink called\n");
 	trfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
 	dget(lower_dentry);
@@ -325,8 +335,107 @@ out:
 	unlock_dir(lower_dir_dentry);
 	dput(lower_dentry);
 	trfs_put_lower_path(dentry, &lower_path);
+	sb=dir->i_sb;
+	trfs_sb_info=(struct trfs_sb_info*)sb->s_fs_info;
+	filename=trfs_sb_info->tracefile->filename;
+
+	bitmap=trfs_sb_info->tracefile->bitmap;
+	
+
+ 	if(bitmap & UNLINK_TR)
+	{
+	
+		if(filename != NULL){
+					
+			sample_record= kzalloc(sizeof(struct trfs_unlink_record), GFP_KERNEL);
+			if(sample_record == NULL){
+				err = -ENOMEM;
+				goto out_err;
+				}
+
+			temp = kmalloc(BUFFER_SIZE, GFP_KERNEL);
+                    	//ar *path = d_path(dentry->dna, temp, PAGE_SIZE);
+			path = dentry_path_raw(dentry, temp, BUFFER_SIZE);
+
+            printk("Full Path is %s\n", path);
+
+			sample_record->pathname_size = strlen(path);
+			printk("pathname size is %d and path name is %s\n", sample_record->pathname_size, path);
+					
+			sample_record->pathname = kmalloc(sizeof(char)*sample_record->pathname_size, GFP_KERNEL);
+			if(sample_record->pathname == NULL){
+				err = -ENOMEM;
+				goto out_err;
+					}
+			strcpy(sample_record->pathname,path);
+			
+			//memcpy((void *)sample_record->pathname, (void *)dentry->d_name.name, sample_record->pathname_size);
+					//printk("Path name in record after memcpy is %s\n", sample_record->pathname);
+			sample_record->record_size = sizeof(sample_record->record_id) + sizeof(sample_record->record_size) + sizeof(sample_record->record_type) + sizeof(sample_record->return_value)
+                                           + sizeof(sample_record->pathname_size) + sample_record->pathname_size; 
+
+			sample_record->record_type = UNLINK_TR; //char 0 will represent 
+			sample_record->return_value = err;
+                                        
+				printk("Sample Record -\n");
+//				printk("record_id is %d\n", sample_record->record_id);
+				printk("record_size is %d\n", sample_record->record_size);
+				printk("record_type is %d\n", sample_record->record_type);
+				printk("return_value is %d\n", sample_record->return_value);
+				printk("pathname_size is %d\n", sample_record->pathname_size);
+				printk("pathname is %s\n", sample_record->pathname);
+				//printk("pathname is %d\n", sample_record->permission_mode);
+				if(trfs_sb_info->tracefile->buffer_offset + sample_record->record_size >= 2*BUFFER_SIZE){
+				mutex_lock(&trfs_sb_info->tracefile->record_lock);
+
+                oldfs = get_fs();
+        		set_fs(get_ds());
+
+        		//Flush the buffer to file and reset the offset to 0
+                retVal = vfs_write(filename, trfs_sb_info->tracefile->buffer, trfs_sb_info->tracefile->buffer_offset, &trfs_sb_info->tracefile->offset);
+             	printk("number of bytes written %d\n", retVal);
+             	trfs_sb_info->tracefile->buffer_offset = 0;
+
+                set_fs(oldfs);
+                mutex_unlock(&trfs_sb_info->tracefile->record_lock);
+			}
+				mutex_lock(&trfs_sb_info->tracefile->record_lock);
+				sample_record->record_id = trfs_sb_info->tracefile->record_id++;				
+					
+			
+				memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_size, sizeof(short));
+				trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(short);
+				memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_type, sizeof(int));
+				trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(int);
+
+			
+
+                memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->return_value, sizeof(int));
+                trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(int);
+				memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_id, sizeof(int));
+				trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(int);	
+
+				memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->pathname_size, sizeof(short));
+				trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(short);
+
+				memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)sample_record->pathname, sample_record->pathname_size);
+				trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sample_record->pathname_size;
+    			mutex_unlock(&trfs_sb_info->tracefile->record_lock);
+					}
+	}
 
 
+out_err:
+
+	if(sample_record){
+		if(sample_record->pathname){
+			kfree(sample_record->pathname);
+		}
+		kfree(sample_record);
+	}
+
+	if(temp)
+		kfree(temp);
 
 
 
@@ -336,10 +445,29 @@ out:
 static int trfs_symlink(struct inode *dir, struct dentry *dentry,
 			  const char *symname)
 {
-	int err;
+	int err, retVal, bitmap;
 	struct dentry *lower_dentry;
 	struct dentry *lower_parent_dentry = NULL;
 	struct path lower_path;
+
+	struct trfs_sb_info *trfs_sb_info;
+	struct super_block *sb;
+	struct trfs_symlink_record *sample_record;
+	char *temp, *path;
+	struct file *filename;
+    mm_segment_t oldfs;
+
+	temp = NULL;
+	sample_record = NULL;
+	sb = NULL;
+
+	printk("trfs_symlink called\n");
+	printk("symname is %s\n", symname);
+	sb = dir->i_sb;
+
+	trfs_sb_info=(struct trfs_sb_info*)sb->s_fs_info;
+    filename=trfs_sb_info->tracefile->filename;
+    bitmap=trfs_sb_info->tracefile->bitmap;
 
 	trfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
@@ -357,6 +485,184 @@ static int trfs_symlink(struct inode *dir, struct dentry *dentry,
 out:
 	unlock_dir(lower_parent_dentry);
 	trfs_put_lower_path(dentry, &lower_path);
+
+	if(bitmap & SYMLINK_TR)
+	{
+		if(filename != NULL){
+					
+			sample_record= kzalloc(sizeof(struct trfs_symlink_record), GFP_KERNEL);
+			if(sample_record == NULL){
+				err = -ENOMEM;
+				goto out_err;
+			}
+			sample_record->targetpath = NULL;
+
+			temp = kmalloc(BUFFER_SIZE, GFP_KERNEL);
+			if(temp == NULL){
+				err = -ENOMEM;
+				goto out_err;
+			}
+                    	//ar *path = d_path(dentry->dna, temp, PAGE_SIZE);
+			path = dentry_path_raw(dentry, temp, BUFFER_SIZE);
+
+            printk("Full Path is %s\n", path);
+
+			sample_record->linkpath_size = strlen(path);
+			printk("pathname size is %d and path name is %s\n", sample_record->linkpath_size, path);
+					
+			sample_record->linkpath = kzalloc(sizeof(char)*sample_record->linkpath_size, GFP_KERNEL);
+			if(sample_record->linkpath == NULL){
+				err = -ENOMEM;
+				goto out_err;
+			}
+			strcpy(sample_record->linkpath ,path);
+
+			sample_record->targetpath_size = strlen(symname);
+			
+			//memcpy((void *)sample_record->pathname, (void *)dentry->d_name.name, sample_record->pathname_size);
+					//printk("Path name in record after memcpy is %s\n", sample_record->pathname);
+			sample_record->record_size = sizeof(sample_record->record_id) + sizeof(sample_record->record_size) + sizeof(sample_record->record_type) + sizeof(sample_record->return_value)
+                                           + sizeof(sample_record->targetpath_size) + sample_record->targetpath_size
+                                           + sizeof(sample_record->linkpath_size) + sample_record->linkpath_size; 
+
+			sample_record->record_type = SYMLINK_TR; //char 0 will represent 
+			sample_record->return_value = err;                            
+			
+			//printk("link_path is %s\n", sample_record->linkpath);
+
+			if(sample_record->targetpath_size > BUFFER_SIZE/2){
+				printk("count > BUFFER_SIZE/2...BUFFER overflow in write\n");
+                mutex_lock(&trfs_sb_info->tracefile->record_lock);
+
+                oldfs = get_fs();
+                set_fs(get_ds());
+
+                //Flush the buffer to file and reset the offset to 0
+                retVal = vfs_write(filename, trfs_sb_info->tracefile->buffer, trfs_sb_info->tracefile->buffer_offset, &trfs_sb_info->tracefile->offset);
+                printk("number of bytes written %d\n", retVal);
+                trfs_sb_info->tracefile->buffer_offset = 0;
+
+                //Get the record ID for write record
+                sample_record->record_id = trfs_sb_info->tracefile->record_id++;
+
+                memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_size, sizeof(short));
+				trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(short);
+
+				memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_type, sizeof(int));
+				trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(int);
+
+                memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->return_value, sizeof(int));
+                trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(int);
+
+				memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_id, sizeof(int));
+				trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(int);	
+
+				memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->linkpath_size, sizeof(short));
+				trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(short);
+
+				memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)sample_record->linkpath, sample_record->linkpath_size);
+				trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sample_record->linkpath_size;
+
+				memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->targetpath_size, sizeof(short));
+				trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(short);
+
+				retVal = vfs_write(filename, trfs_sb_info->tracefile->buffer, trfs_sb_info->tracefile->buffer_offset, &trfs_sb_info->tracefile->offset);
+                printk("number of bytes written %d\n", retVal);
+                trfs_sb_info->tracefile->buffer_offset = 0;
+
+                //Write the entire write-buf to the file 
+                retVal = vfs_write(filename, symname, strlen(symname), &trfs_sb_info->tracefile->offset);
+                printk("writing the symlink name path directly to log file\n");
+
+                set_fs(oldfs);
+                mutex_unlock(&trfs_sb_info->tracefile->record_lock);
+			}
+			else{
+				sample_record->targetpath = kzalloc(strlen(symname), GFP_KERNEL);
+				if(sample_record->targetpath == NULL){
+                    err = -ENOMEM;
+                    goto out;
+                }
+				strcpy(sample_record->targetpath ,symname);
+                
+
+                //Check if this record size can fit inside the buffer with current offset
+                if(trfs_sb_info->tracefile->buffer_offset + sample_record->record_size >= 2*BUFFER_SIZE){
+                    printk("count + BUFFER_offset > 2*BUFFER_SIZE...BUFFER overflow in write\n");
+                    mutex_lock(&trfs_sb_info->tracefile->record_lock);
+
+                    oldfs = get_fs();
+                    set_fs(get_ds());
+
+                    //Flush the buffer to file and reset the offset to 0
+                    retVal = vfs_write(filename, trfs_sb_info->tracefile->buffer, trfs_sb_info->tracefile->buffer_offset, &trfs_sb_info->tracefile->offset);
+                    printk("number of bytes written %d\n", retVal);
+                    trfs_sb_info->tracefile->buffer_offset = 0;
+
+                    set_fs(oldfs);
+                    mutex_unlock(&trfs_sb_info->tracefile->record_lock);
+                }
+
+                printk("Sample symlink Record -\n");
+//				printk("record_id is %d\n", sample_record->record_id);
+				printk("record_size is %d\n", sample_record->record_size);
+				printk("record_type is %d\n", sample_record->record_type);
+				printk("return_value is %d\n", sample_record->return_value);
+				printk("linkpath_size is %d\n", sample_record->linkpath_size);
+				printk("link path is %s\n", sample_record->linkpath);
+				printk("targetpath_size is %d\n", sample_record->targetpath_size);
+				printk("target path is %s\n", sample_record->targetpath);
+
+                mutex_lock(&trfs_sb_info->tracefile->record_lock);
+                sample_record->record_id = trfs_sb_info->tracefile->record_id++;
+
+                memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_size, sizeof(short));
+				trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(short);
+
+				memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_type, sizeof(int));
+				trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(int);
+
+                memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->return_value, sizeof(int));
+                trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(int);
+
+				memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_id, sizeof(int));
+				trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(int);	
+				
+
+				memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->linkpath_size, sizeof(short));
+				trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(short);
+
+				memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)sample_record->linkpath, sample_record->linkpath_size);
+				trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sample_record->linkpath_size;
+
+				memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->targetpath_size, sizeof(short));
+				trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(short);
+
+				memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)sample_record->targetpath, sample_record->targetpath_size);
+				trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sample_record->targetpath_size;
+
+
+				mutex_unlock(&trfs_sb_info->tracefile->record_lock);
+			}
+		}
+	}
+
+
+out_err:
+
+	if(sample_record){
+		if(sample_record->targetpath){
+			kfree(sample_record->targetpath);
+		}
+		if(sample_record->linkpath){
+			kfree(sample_record->linkpath);
+		}
+		kfree(sample_record);
+	}
+
+	if(temp)
+		kfree(temp);
+
 	return err;
 }
 
@@ -370,7 +676,7 @@ static int trfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 	struct path lower_path;
 	struct super_block *sb;
 	struct trfs_sb_info *trfs_sb_info;
-	unsigned long long offset;
+	//unsigned long long offset;
 	struct file *filename=NULL;
 	//char *data=NULL;
 	char *temp=NULL;
@@ -407,7 +713,6 @@ out:	unlock_dir(lower_parent_dentry);
 		filename=trfs_sb_info->tracefile->filename;
 	
 		bitmap=trfs_sb_info->tracefile->bitmap;
-		printk("Bitmap value is:%d",trfs_sb_info->tracefile->bitmap);	
 	
 	 	if(bitmap & MKDIR_TR)
 		{
@@ -458,7 +763,7 @@ out:	unlock_dir(lower_parent_dentry);
 				printk("return_value is %d\n", sample_record->return_value);
 				printk("pathname_size is %d\n", sample_record->pathname_size);
 				printk("pathname is %s\n", sample_record->pathname);
-				printk("pathname permission %d\n", sample_record->permission_mode);
+				printk("pathname is %d\n", sample_record->permission_mode);
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -487,9 +792,8 @@ out:	unlock_dir(lower_parent_dentry);
 			
 				memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_size, sizeof(short));
 				trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(short);
-
-				memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_type, sizeof(char));
-				trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(char);
+				memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_type, sizeof(int));
+				trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(int);
 
 				memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->permission_mode, sizeof(int));
 				trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(int);
@@ -531,6 +835,23 @@ static int trfs_rmdir(struct inode *dir, struct dentry *dentry)
 	struct dentry *lower_dir_dentry;
 	int err;
 	struct path lower_path;
+	//----Declarations-------
+ 	struct super_block *sb;
+	struct trfs_sb_info *trfs_sb_info;
+	//unsigned long long offset;
+	struct file *filename=NULL;
+	char *temp=NULL;
+	int bitmap;
+	char *path;
+	mm_segment_t oldfs;
+	int retVal;
+	struct trfs_rmdir_record *sample_record = NULL;
+
+	printk("Trfs_Rmdir called\n");
+
+
+
+
 
 	trfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
@@ -550,6 +871,108 @@ static int trfs_rmdir(struct inode *dir, struct dentry *dentry)
 out:
 	unlock_dir(lower_dir_dentry);
 	trfs_put_lower_path(dentry, &lower_path);
+	sb=dir->i_sb;
+	trfs_sb_info=(struct trfs_sb_info*)sb->s_fs_info;
+	filename=trfs_sb_info->tracefile->filename;
+
+	bitmap=trfs_sb_info->tracefile->bitmap;
+		
+
+ 	if(bitmap & RMDIR_TR)
+	{
+	 
+		if(filename != NULL){
+					
+			sample_record= kzalloc(sizeof(struct trfs_rmdir_record), GFP_KERNEL);
+			if(sample_record == NULL){
+				err = -ENOMEM;
+				goto out_err;
+				}
+
+			temp = kmalloc(BUFFER_SIZE, GFP_KERNEL);
+                    	//ar *path = d_path(dentry->dna, temp, PAGE_SIZE);
+			path = dentry_path_raw(dentry, temp, BUFFER_SIZE);
+
+            printk("Full Path is %s\n", path);
+
+			sample_record->pathname_size = strlen(path);
+			printk("pathname size is %d and path name is %s\n", sample_record->pathname_size, path);
+					
+			sample_record->pathname = kmalloc(sizeof(char)*sample_record->pathname_size, GFP_KERNEL);
+			if(sample_record->pathname == NULL){
+				err = -ENOMEM;
+				goto out_err;
+					}
+			strcpy(sample_record->pathname,path);
+			
+			//memcpy((void *)sample_record->pathname, (void *)dentry->d_name.name, sample_record->pathname_size);
+					//printk("Path name in record after memcpy is %s\n", sample_record->pathname);
+			sample_record->record_size = sizeof(sample_record->record_id) + sizeof(sample_record->record_size) + sizeof(sample_record->record_type)
+                                          + sizeof(sample_record->return_value)
+                                           + sizeof(sample_record->pathname_size) + sample_record->pathname_size; 
+            sample_record->record_type = RMDIR_TR; //char 0 will represent 
+			sample_record->return_value = err;
+                                        
+				printk("Sample Record -\n");
+//				printk("record_id is %d\n", sample_record->record_id);
+				printk("record_size is %d\n", sample_record->record_size);
+				printk("record_type is %d\n", sample_record->record_type);
+				printk("return_value is %d\n", sample_record->return_value);
+				printk("pathname_size is %d\n", sample_record->pathname_size);
+				printk("pathname is %s\n", sample_record->pathname);
+				//printk("pathname is %d\n", sample_record->permission_mode);
+				if(trfs_sb_info->tracefile->buffer_offset + sample_record->record_size >= 2*BUFFER_SIZE){
+					mutex_lock(&trfs_sb_info->tracefile->record_lock);
+
+                	oldfs = get_fs();
+        			set_fs(get_ds());
+
+        		//Flush the buffer to file and reset the offset to 0
+                	retVal = vfs_write(filename, trfs_sb_info->tracefile->buffer, trfs_sb_info->tracefile->buffer_offset, &trfs_sb_info->tracefile->offset);
+             		printk("number of bytes written %d\n", retVal);
+             		trfs_sb_info->tracefile->buffer_offset = 0;
+
+                	set_fs(oldfs);
+                	mutex_unlock(&trfs_sb_info->tracefile->record_lock);
+			}
+				mutex_lock(&trfs_sb_info->tracefile->record_lock);
+				sample_record->record_id = trfs_sb_info->tracefile->record_id++;				
+					
+			
+				memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_size, sizeof(short));
+				trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(short);
+				memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_type, sizeof(int));
+				trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(int);
+
+			
+
+                memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->return_value, sizeof(int));
+                trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(int);
+				memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_id, sizeof(int));
+				trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(int);	
+
+				memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->pathname_size, sizeof(short));
+				trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(short);
+				memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)sample_record->pathname, sample_record->pathname_size);
+				trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sample_record->pathname_size;
+    			mutex_unlock(&trfs_sb_info->tracefile->record_lock);
+					}
+	}
+
+
+out_err:
+
+	if(sample_record){
+		if(sample_record->pathname){
+			kfree(sample_record->pathname);
+		}
+		kfree(sample_record);
+	}
+
+	if(temp)
+		kfree(temp);
+                            
+
 	return err;
 }
 
@@ -592,13 +1015,27 @@ static int trfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 {
 	//printk("Trfs_rename called");
 
-	int err = 0;
+	int err = 0, retVal, bitmap;
 	struct dentry *lower_old_dentry = NULL;
 	struct dentry *lower_new_dentry = NULL;
 	struct dentry *lower_old_dir_dentry = NULL;
 	struct dentry *lower_new_dir_dentry = NULL;
 	struct dentry *trap = NULL;
 	struct path lower_old_path, lower_new_path;
+
+	struct trfs_rename_record *sample_record = NULL; 
+	char *temp = NULL, *old_path = NULL, *new_path = NULL;
+	struct file* filename;
+	struct super_block *sb;
+    struct trfs_sb_info *trfs_sb_info;
+    mm_segment_t oldfs;
+
+    printk("Trfs_rename called\n");
+    sb=old_dir->i_sb;
+
+    trfs_sb_info=(struct trfs_sb_info*)sb->s_fs_info;
+    filename=trfs_sb_info->tracefile->filename;
+    bitmap=trfs_sb_info->tracefile->bitmap;
 
 	trfs_get_lower_path(old_dentry, &lower_old_path);
 	trfs_get_lower_path(new_dentry, &lower_new_path);
@@ -633,6 +1070,180 @@ static int trfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 		fsstack_copy_inode_size(old_dir,
 					d_inode(lower_old_dir_dentry));
 	}
+
+	if(bitmap & RENAME_TR)
+	{
+		if(filename != NULL){
+					
+			sample_record= kzalloc(sizeof(struct trfs_rename_record), GFP_KERNEL);
+			if(sample_record == NULL){
+				err = -ENOMEM;
+				goto out_err;
+			}
+
+			temp = kmalloc(BUFFER_SIZE, GFP_KERNEL);
+			old_path = dentry_path_raw(old_dentry, temp, BUFFER_SIZE);
+
+			printk("Old Path is %s\n", old_path);
+
+            sample_record->oldpathsize = strlen(old_path);
+            printk("pathname size is %d and path name is %s\n", sample_record->oldpathsize, old_path);
+
+            sample_record->oldpath = kmalloc(sizeof(char)*sample_record->oldpathsize, GFP_KERNEL);
+            if(sample_record->oldpath == NULL){
+                err = -ENOMEM;
+                goto out_err;
+            }
+            strcpy(sample_record->oldpath,old_path);
+
+			new_path = dentry_path_raw(new_dentry, temp, PAGE_SIZE);
+			printk("new Path is %s\n", new_path);
+            sample_record->newpathsize = strlen(new_path);
+            printk("pathname size is %d and path name is %s\n", sample_record->newpathsize, new_path);
+            
+            
+            sample_record->record_size = sizeof(sample_record->record_id) + sizeof(sample_record->record_size) + sizeof(sample_record->record_type)
+										+ sizeof(sample_record->oldpathsize) + sample_record->oldpathsize
+                           				+ sizeof(sample_record->newpathsize)  + sample_record->newpathsize
+                           				+ sizeof(sample_record->return_value) ;
+
+            sample_record->record_type = RENAME_TR; //char 0 will represent
+            sample_record->return_value = err;
+
+            if(sample_record->newpathsize > BUFFER_SIZE/2){
+                //Write count is greater than page size...so flush the buffer
+                printk("count > BUFFER_SIZE/2...BUFFER overflow in write\n");
+                mutex_lock(&trfs_sb_info->tracefile->record_lock);
+
+                oldfs = get_fs();
+                set_fs(get_ds());
+
+                //Flush the buffer to file and reset the offset to 0
+                retVal = vfs_write(filename, trfs_sb_info->tracefile->buffer, trfs_sb_info->tracefile->buffer_offset, &trfs_sb_info->tracefile->offset);
+                printk("number of bytes written %d\n", retVal);
+                trfs_sb_info->tracefile->buffer_offset = 0;
+
+                //Get the record ID for write record
+                sample_record->record_id = trfs_sb_info->tracefile->record_id++;
+
+                //Push rest of write record details
+                memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_size, sizeof(short));
+                trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(short);
+
+                memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_type, sizeof(int));
+                trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(int);
+
+
+                memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->oldpathsize, sizeof(short));
+                trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(short);
+
+                memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)sample_record->oldpath, sample_record->oldpathsize);
+                trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sample_record->oldpathsize;
+
+                memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->return_value, sizeof(int));
+                trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(int);
+			
+
+                memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_id, sizeof(int));
+                trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(int);
+
+               
+  				memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->newpathsize, sizeof(short));
+                trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(short);
+
+                retVal = vfs_write(filename, trfs_sb_info->tracefile->buffer, trfs_sb_info->tracefile->buffer_offset, &trfs_sb_info->tracefile->offset);
+                printk("number of bytes written %d\n", retVal);
+                trfs_sb_info->tracefile->buffer_offset = 0;
+
+                //Write the entire write-buf to the file 
+                retVal = vfs_write(filename, new_path, sample_record->newpathsize, &trfs_sb_info->tracefile->offset);
+                printk("writing the new path directly to log file\n");
+
+                set_fs(oldfs);
+                mutex_unlock(&trfs_sb_info->tracefile->record_lock);
+
+            }
+            else{
+
+				sample_record->newpath = kmalloc(sizeof(char)*sample_record->newpathsize, GFP_KERNEL);
+            	if(sample_record->newpath == NULL){
+                    err = -ENOMEM;
+                    goto out_err;
+                }
+
+            	strcpy(sample_record->newpath,new_path);
+
+				if(trfs_sb_info->tracefile->buffer_offset + sample_record->record_size >= 2*BUFFER_SIZE){
+	                mutex_lock(&trfs_sb_info->tracefile->record_lock);
+
+    				oldfs = get_fs();
+	                set_fs(get_ds());
+
+	                //Flush the buffer to file and reset the offset to 0
+	                retVal = vfs_write(filename, trfs_sb_info->tracefile->buffer, trfs_sb_info->tracefile->buffer_offset, &trfs_sb_info->tracefile->offset);
+	                printk("number of bytes written %d\n", retVal);
+	                trfs_sb_info->tracefile->buffer_offset = 0;
+
+	                set_fs(oldfs);
+	                mutex_unlock(&trfs_sb_info->tracefile->record_lock);
+				}
+
+
+                mutex_lock(&trfs_sb_info->tracefile->record_lock);
+                sample_record->record_id = trfs_sb_info->tracefile->record_id++;
+
+                printk("Sample Record -\n");
+                printk("record_id is %d\n", sample_record->record_id);
+                printk("record_size is %d\n", sample_record->record_size);
+                printk("record_type is %d\n", sample_record->record_type);
+                printk("return_value is %d\n", sample_record->return_value);
+
+          
+                memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_size, sizeof(short));
+                trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(short);
+
+                memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_type, sizeof(int));
+                trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(int);
+
+
+                memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->oldpathsize, sizeof(short));
+                trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(short);
+
+                memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)sample_record->oldpath, sample_record->oldpathsize);
+                trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sample_record->oldpathsize;
+
+                memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->return_value, sizeof(int));
+                trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(int);
+			
+
+                memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_id, sizeof(int));
+                trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(int);
+
+               
+  				memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->newpathsize, sizeof(short));
+                trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(short);
+
+  				memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)sample_record->newpath, sample_record->newpathsize);
+                trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sample_record->newpathsize;
+
+                mutex_unlock(&trfs_sb_info->tracefile->record_lock);
+
+			}
+        }
+    }
+out_err:
+	if(sample_record){
+        if(sample_record->oldpath){
+                kfree(sample_record->oldpath);
+        }
+		 if(sample_record->newpath){
+            kfree(sample_record->newpath);
+    	}
+
+		kfree(sample_record);
+	}
+	if(temp)
+        kfree(temp);
 
 out:
 	unlock_rename(lower_old_dir_dentry, lower_new_dir_dentry);

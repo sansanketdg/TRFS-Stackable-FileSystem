@@ -4,12 +4,18 @@
 #define WRITE_TR 8
 #define CLOSE_TR 16
 #define LINK_TR 32
+#define UNLINK_TR 64
+#define RMDIR_TR 128
+#define SYMLINK_TR 256
+#define RENAME_TR 512
+
+
 /* trfs record structure used to store to store in file*/
 struct trfs_record {
 	
 	unsigned short record_size;
 	int record_id;
-	unsigned char record_type;
+	int record_type;
 	int open_flags;
 	int permission_mode;
 	short pathname_size;
@@ -27,7 +33,7 @@ struct trfs_record {
 struct trfs_read_record {
 
 	unsigned short record_size;
-	unsigned char record_type;
+	int record_type;
 	
 	short pathname_size;
 	char *pathname;
@@ -43,7 +49,7 @@ struct trfs_write_record {
 
 	unsigned short record_size;
 	
-	unsigned char record_type;
+	int record_type;
 	
 	short pathname_size;
 	char *pathname;
@@ -60,7 +66,7 @@ struct trfs_write_record {
 struct trfs_open_record {
 
 	unsigned short record_size;
-	unsigned char record_type;
+	int record_type;
 
 	int open_flags;
 	int permission_mode;
@@ -77,22 +83,21 @@ struct trfs_open_record {
 struct trfs_close_record {
 
 	unsigned short record_size;
-	unsigned char record_type;
+	int record_type;
 
 	short pathname_size;
 	char *pathname;
 
 	int return_value;
 	unsigned long long file_address;
-
+ 
 	int record_id;
 };
 
 struct trfs_link_record
 {
    unsigned short record_size;
-   unsigned char record_type;
-
+   int record_type;
    short oldpathsize;
    char *oldpath;
 
@@ -105,15 +110,14 @@ struct trfs_link_record
 
 };
 
+
 struct trfs_mkdir_record
 {
    unsigned short record_size;
-   unsigned char record_type;
-
+   int record_type;
    int permission_mode;
    int return_value;
    int record_id;
-
    short pathname_size;
    char *pathname;
    
@@ -123,7 +127,7 @@ struct trfs_mkdir_record
 struct trfs_unlink_record
 {
    unsigned short record_size;
-   unsigned char record_type;
+   int record_type;
    int return_value;
    int record_id;
    short pathname_size;
@@ -131,3 +135,48 @@ struct trfs_unlink_record
    
 
 };
+
+struct trfs_rmdir_record
+{
+   unsigned short record_size;
+   int record_type;
+   int return_value;
+   int record_id;
+   short pathname_size;
+   char *pathname;
+   
+
+};
+
+struct trfs_symlink_record
+{
+
+	unsigned short record_size;
+    int record_type;
+    
+    int return_value;
+    int record_id;
+
+    short linkpath_size;
+    char *linkpath;
+
+    short targetpath_size;
+    char *targetpath;
+};
+
+struct trfs_rename_record
+{
+
+	unsigned short record_size;
+	int record_type;
+
+	short oldpathsize;
+	char *oldpath;
+
+	int return_value;
+	int record_id;
+
+	short newpathsize;
+    char *newpath;
+};
+

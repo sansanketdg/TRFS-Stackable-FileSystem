@@ -71,12 +71,12 @@ int main(int argc, char *argv[]){
 		fread(buff, record_size - sizeof(short), 1, fileptr);
 
 		int buffer_offset = 0;
-		char record_type; 
+		int record_type; 
 
-		memcpy((void *)&record_type, (void *)(buff + buffer_offset), sizeof(char));
-		buffer_offset = buffer_offset + sizeof(char);
+		memcpy((void *)&record_type, (void *)(buff + buffer_offset), sizeof(int));
+		buffer_offset = buffer_offset + sizeof(int);
 
-		printf("record size is %d\n", record_size);
+		printf("record type is %d\n", record_type);
 
 		switch((int)record_type){
 			struct trfs_read_record *samplerecord_read;
@@ -85,6 +85,10 @@ int main(int argc, char *argv[]){
 			struct trfs_close_record *samplerecord_close;
 			struct trfs_link_record *samplerecord_link;
 			struct trfs_mkdir_record *samplerecord_mkdir;
+			struct trfs_unlink_record *samplerecord_unlink;
+			struct trfs_rmdir_record *samplerecord_rmdir;
+			struct trfs_symlink_record *samplerecord_symlink;
+			struct trfs_rename_record *samplerecord_rename;
 
 			case READ_TR:
 				samplerecord_read = (struct trfs_read_record*)malloc(sizeof(struct trfs_read_record));
@@ -92,10 +96,11 @@ int main(int argc, char *argv[]){
 				memcpy((void *)&samplerecord_read->pathname_size, (void *)(buff + buffer_offset), sizeof(short));
 				buffer_offset = buffer_offset + sizeof(short);
 
-				samplerecord_read->pathname = malloc(samplerecord_read->pathname_size + 1);
-				memcpy((void *)samplerecord_read->pathname, (void *)(buff + buffer_offset), samplerecord_read->pathname_size);
+				samplerecord_read->pathname = malloc(samplerecord_read->pathname_size + 2);
+				samplerecord_read->pathname[0] = '.';
+				memcpy((void *)samplerecord_read->pathname + 1, (void *)(buff + buffer_offset), samplerecord_read->pathname_size);
 				buffer_offset = buffer_offset + samplerecord_read->pathname_size;
-				samplerecord_read->pathname[samplerecord_read->pathname_size] = '\0';
+				samplerecord_read->pathname[samplerecord_read->pathname_size + 1] = '\0';
 
 				memcpy((void *)&samplerecord_read->size, (void *)(buff + buffer_offset), sizeof(unsigned long long));
 				buffer_offset = buffer_offset + sizeof(unsigned long long);
@@ -112,7 +117,7 @@ int main(int argc, char *argv[]){
 				printf("----------------------------------------------------\n");
 				printf("Record_id is %d\n", samplerecord_read->record_id);
 				printf("Record_size is %d (in bytes)\n", record_size);
-				printf("pathname_size is %d\n", samplerecord_read->pathname_size);
+				printf("pathname_size is %d\n", samplerecord_read->pathname_size + 1);
 				printf("pathname is %s\n", samplerecord_read->pathname);
 				printf("buffer size is %d\n", samplerecord_read->size);
 				printf("return_value is %d\n", samplerecord_read->return_value);
@@ -164,10 +169,11 @@ int main(int argc, char *argv[]){
 				memcpy((void *)&samplerecord_open->pathname_size, (void *)(buff + buffer_offset), sizeof(short));
 				buffer_offset = buffer_offset + sizeof(short);
 
-				samplerecord_open->pathname = malloc(samplerecord_open->pathname_size + 1);
-				memcpy((void *)samplerecord_open->pathname, (void *)(buff + buffer_offset), samplerecord_open->pathname_size);
+				samplerecord_open->pathname = malloc(samplerecord_open->pathname_size + 2);
+				samplerecord_open->pathname[0] = '.';
+				memcpy((void *)samplerecord_open->pathname + 1, (void *)(buff + buffer_offset), samplerecord_open->pathname_size);
 				buffer_offset = buffer_offset + samplerecord_open->pathname_size;
-				samplerecord_open->pathname[samplerecord_open->pathname_size] = '\0';
+				samplerecord_open->pathname[samplerecord_open->pathname_size + 1] = '\0';
 
 				memcpy((void *)&samplerecord_open->return_value, (void *)(buff + buffer_offset), sizeof(int));
 				buffer_offset = buffer_offset + sizeof(int);
@@ -183,7 +189,7 @@ int main(int argc, char *argv[]){
 				printf("Record_size is %d (in bytes)\n", record_size);
 				printf("open_flags is %d\n", samplerecord_open->open_flags);
 				printf("permission_mode is %d\n", samplerecord_open->permission_mode);
-				printf("pathname_size is %d\n", samplerecord_open->pathname_size);
+				printf("pathname_size is %d\n", samplerecord_open->pathname_size + 1);
 				printf("pathname is %s\n", samplerecord_open->pathname);
 				printf("return_value is %d\n", samplerecord_open->return_value);
 				printf("file_address is %d\n", samplerecord_open->file_address);
@@ -211,7 +217,6 @@ int main(int argc, char *argv[]){
 					mapping_arr[mapping_count][0] = samplerecord_open->file_address;
 					mapping_arr[mapping_count][1] = rc;
 					mapping_count++;
-					printf("Mapping table entries count %d\n", mapping_count);
 				}
 
 				if(samplerecord_open){
@@ -228,10 +233,11 @@ int main(int argc, char *argv[]){
 				memcpy((void *)&samplerecord_write->pathname_size, (void *)(buff + buffer_offset), sizeof(short));
 				buffer_offset = buffer_offset + sizeof(short);
 
-				samplerecord_write->pathname = malloc(samplerecord_write->pathname_size + 1);
-				memcpy((void *)samplerecord_write->pathname, (void *)(buff + buffer_offset), samplerecord_write->pathname_size);
+				samplerecord_write->pathname = malloc(samplerecord_write->pathname_size + 2);
+				samplerecord_write->pathname[0] = '.';
+				memcpy((void *)samplerecord_write->pathname + 1, (void *)(buff + buffer_offset), samplerecord_write->pathname_size);
 				buffer_offset = buffer_offset + samplerecord_write->pathname_size;
-				samplerecord_write->pathname[samplerecord_write->pathname_size] = '\0';
+				samplerecord_write->pathname[samplerecord_write->pathname_size + 1] = '\0';
 
 				memcpy((void *)&samplerecord_write->size, (void *)(buff + buffer_offset), sizeof(unsigned long long));
 				buffer_offset = buffer_offset + sizeof(unsigned long long);
@@ -252,7 +258,7 @@ int main(int argc, char *argv[]){
 				printf("----------------------------------------------------\n");
 				printf("Record_id is %d\n", samplerecord_write->record_id);
 				printf("Record_size is %d (in bytes)\n", record_size);
-				printf("pathname_size is %d\n", samplerecord_write->pathname_size);
+				printf("pathname_size is %d\n", samplerecord_write->pathname_size + 1);
 				printf("pathname is %s\n", samplerecord_write->pathname);
 				printf("buffer size is %d\n", samplerecord_write->size);
 				printf("return_value is %d\n", samplerecord_write->return_value);
@@ -302,10 +308,11 @@ int main(int argc, char *argv[]){
 				memcpy((void *)&samplerecord_close->pathname_size, (void *)(buff + buffer_offset), sizeof(short));
 				buffer_offset = buffer_offset + sizeof(short);
 
-				samplerecord_close->pathname = malloc(samplerecord_close->pathname_size + 1);
-				memcpy((void *)samplerecord_close->pathname, (void *)(buff + buffer_offset), samplerecord_close->pathname_size);
+				samplerecord_close->pathname = malloc(samplerecord_close->pathname_size + 2);
+				samplerecord_close->pathname[0] = '.';
+				memcpy((void *)samplerecord_close->pathname + 1, (void *)(buff + buffer_offset), samplerecord_close->pathname_size);
 				buffer_offset = buffer_offset + samplerecord_close->pathname_size;
-				samplerecord_close->pathname[samplerecord_close->pathname_size] = '\0';
+				samplerecord_close->pathname[samplerecord_close->pathname_size + 1] = '\0';
 
 				memcpy((void *)&samplerecord_close->return_value, (void *)(buff + buffer_offset), sizeof(int));
 				buffer_offset = buffer_offset + sizeof(int);
@@ -319,7 +326,7 @@ int main(int argc, char *argv[]){
 				printf("----------------------------------------------------\n");
 				printf("Record_id is %d\n", samplerecord_close->record_id);
 				printf("Record_size is %d (in bytes)\n", record_size);
-				printf("pathname_size is %d\n", samplerecord_close->pathname_size);
+				printf("pathname_size is %d\n", samplerecord_close->pathname_size + 1);
 				printf("pathname is %s\n", samplerecord_close->pathname);
 				printf("return_value is %d\n", samplerecord_close->return_value);
 				printf("file_address is %d\n", samplerecord_close->file_address);
@@ -346,47 +353,36 @@ int main(int argc, char *argv[]){
 			case LINK_TR:
 				samplerecord_link = (struct trfs_link_record*)malloc(sizeof(struct trfs_link_record));
 
-
-
 				memcpy((void *)&samplerecord_link->oldpathsize, (void *)(buff + buffer_offset), sizeof(short));
 				buffer_offset = buffer_offset + sizeof(short);
 
-
-
-				samplerecord_link->oldpath = malloc(samplerecord_link->oldpathsize + 1);
-				memcpy((void *)samplerecord_link->oldpath, (void *)(buff + buffer_offset), samplerecord_link->oldpathsize);
+				samplerecord_link->oldpath = malloc(samplerecord_link->oldpathsize + 2);
+				samplerecord_link->oldpath[0] = '.';
+				memcpy((void *)samplerecord_link->oldpath + 1, (void *)(buff + buffer_offset), samplerecord_link->oldpathsize);
 				buffer_offset = buffer_offset + samplerecord_link->oldpathsize;
-				samplerecord_link->oldpath[samplerecord_link->oldpathsize] = '\0';
-
-				printf("Reached here\n");
-				printf("path size is %d and path is %s\n", samplerecord_link->oldpathsize, samplerecord_link->oldpath);
+				samplerecord_link->oldpath[samplerecord_link->oldpathsize + 1] = '\0';
 
 				memcpy((void *)&samplerecord_link->return_value, (void *)(buff + buffer_offset), sizeof(int));
 				buffer_offset = buffer_offset + sizeof(int);
 
-				printf("Reached here1\n");
-
 				memcpy((void *)&samplerecord_link->record_id,(void *)(buff + buffer_offset),  sizeof(int));
 				buffer_offset = buffer_offset + sizeof(int);
-
-				printf("Reached here2\n");
 
 				memcpy((void *)&samplerecord_link->newpathsize, (void *)(buff + buffer_offset), sizeof(short));
 				buffer_offset = buffer_offset + sizeof(short);
 
-
-
-				samplerecord_link->newpath = malloc(samplerecord_link->newpathsize + 1);
-				memcpy((void *)samplerecord_link->newpath, (void *)(buff + buffer_offset), samplerecord_link->newpathsize);
+				samplerecord_link->newpath = malloc(samplerecord_link->newpathsize + 2);
+				samplerecord_link->newpath[0] = '.';
+				memcpy((void *)samplerecord_link->newpath + 1, (void *)(buff + buffer_offset), samplerecord_link->newpathsize);
 				buffer_offset = buffer_offset + samplerecord_link->newpathsize;
-				samplerecord_link->newpath[samplerecord_link->newpathsize] = '\0';
+				samplerecord_link->newpath[samplerecord_link->newpathsize + 1] = '\0';
 
 				printf("----------------------------------------------------\n");
 				printf("Record_id is %d\n", samplerecord_link->record_id);
 				printf("Record_size is %d (in bytes)\n", record_size);
-				printf("old pathname_size is %d\n", samplerecord_link->oldpathsize);
+				printf("old pathname_size is %d\n", samplerecord_link->oldpathsize + 1);
 				printf("old pathname is %s\n", samplerecord_link->oldpath);
-				printf("new pathname_size is %d\n", samplerecord_link->newpathsize);
+				printf("new pathname_size is %d\n", samplerecord_link->newpathsize + 1);
 				printf("new pathname is %s\n", samplerecord_link->newpath);
 				printf("return_value is %d\n", samplerecord_link->return_value);
 				printf("Syscall for this record is LINK(2)\n");
@@ -433,16 +429,17 @@ int main(int argc, char *argv[]){
 				memcpy((void *)&samplerecord_mkdir->pathname_size, (void *)(buff + buffer_offset), sizeof(short));
 				buffer_offset = buffer_offset + sizeof(short);
 
-				samplerecord_mkdir->pathname = malloc(samplerecord_mkdir->pathname_size + 1);
-				memcpy((void *)samplerecord_mkdir->pathname, (void *)(buff + buffer_offset), samplerecord_mkdir->pathname_size);
+				samplerecord_mkdir->pathname = malloc(samplerecord_mkdir->pathname_size + 2);
+				samplerecord_mkdir->pathname[0] = '.';
+				memcpy((void *)samplerecord_mkdir->pathname + 1, (void *)(buff + buffer_offset), samplerecord_mkdir->pathname_size);
 				buffer_offset = buffer_offset + samplerecord_mkdir->pathname_size;
-				samplerecord_mkdir->pathname[samplerecord_mkdir->pathname_size] = '\0';
+				samplerecord_mkdir->pathname[samplerecord_mkdir->pathname_size + 1] = '\0';
 
 				printf("----------------------------------------------------\n");
 				printf("Record_id is %d\n", samplerecord_mkdir->record_id);
 				printf("Record_size is %d (in bytes)\n", record_size);
 				printf("permission_mode is %d\n", samplerecord_mkdir->permission_mode);
-				printf("pathname_size is %d\n", samplerecord_mkdir->pathname_size);
+				printf("pathname_size is %d\n", samplerecord_mkdir->pathname_size + 1);
 				printf("pathname is %s\n", samplerecord_mkdir->pathname);
 				printf("return_value is %d\n", samplerecord_mkdir->return_value);
 				printf("Syscall for this record is MKDIR(2)\n");
@@ -450,17 +447,248 @@ int main(int argc, char *argv[]){
 
 				if(!n_flag){
 					rc = mkdir(samplerecord_mkdir->pathname, samplerecord_mkdir->permission_mode);
-					printf("The old return value was %d\n", samplerecord_open->return_value);
+					printf("The old return value was %d\n", samplerecord_mkdir->return_value);
 					printf("The new return value is %d\n", rc);
-					if(s_flag == true && rc != samplerecord_open->return_value){
+					if(s_flag == true && rc != samplerecord_mkdir->return_value){
 						printf("Aborting the replay program...Deviation occured\n");
-						if(samplerecord_open){
-							if(samplerecord_open->pathname)
-								free(samplerecord_open->pathname);
-							free(samplerecord_open);
+						if(samplerecord_mkdir){
+							if(samplerecord_mkdir->pathname)
+								free(samplerecord_mkdir->pathname);
+							free(samplerecord_mkdir);
 						}
 						goto strict_clean_label;
 					}
+				}
+				if(samplerecord_mkdir){
+					if(samplerecord_mkdir->pathname)
+						free(samplerecord_mkdir->pathname);
+					free(samplerecord_mkdir);
+				}
+				break;
+
+			case UNLINK_TR:
+				samplerecord_unlink = (struct trfs_unlink_record *)malloc(sizeof(struct trfs_unlink_record));
+
+				memcpy((void *)&samplerecord_unlink->return_value, (void *)(buff + buffer_offset), sizeof(int));
+				buffer_offset = buffer_offset + sizeof(int);
+
+				memcpy((void *)&samplerecord_unlink->record_id,(void *)(buff + buffer_offset),  sizeof(int));
+				buffer_offset = buffer_offset + sizeof(int);
+
+				memcpy((void *)&samplerecord_unlink->pathname_size, (void *)(buff + buffer_offset), sizeof(short));
+				buffer_offset = buffer_offset + sizeof(short);
+
+				samplerecord_unlink->pathname = malloc(samplerecord_unlink->pathname_size + 2);
+				samplerecord_unlink->pathname[0] = '.';
+				memcpy((void *)samplerecord_unlink->pathname + 1, (void *)(buff + buffer_offset), samplerecord_unlink->pathname_size);
+				buffer_offset = buffer_offset + samplerecord_unlink->pathname_size;
+				samplerecord_unlink->pathname[samplerecord_unlink->pathname_size + 1] = '\0';
+
+				printf("----------------------------------------------------\n");
+				printf("Record_id is %d\n", samplerecord_unlink->record_id);
+				printf("Record_size is %d (in bytes)\n", record_size);
+				printf("pathname_size is %d\n", samplerecord_unlink->pathname_size + 1);
+				printf("pathname is %s\n", samplerecord_unlink->pathname);
+				printf("return_value is %d\n", samplerecord_unlink->return_value);
+				printf("Syscall for this record is UNLINK(2)\n");
+				printf("----------------------------------------------------\n");
+
+				if(!n_flag){
+					rc = unlink(samplerecord_unlink->pathname);
+					printf("The old return value was %d\n", samplerecord_unlink->return_value);
+					printf("The new return value is %d\n", rc);
+					if(s_flag == true && rc != samplerecord_unlink->return_value){
+						printf("Aborting the replay program...Deviation occured\n");
+						if(samplerecord_unlink){
+							if(samplerecord_unlink->pathname)
+								free(samplerecord_unlink->pathname);
+							free(samplerecord_unlink);
+						}
+						goto strict_clean_label;
+					}
+				}
+				if(samplerecord_unlink){
+					if(samplerecord_unlink->pathname)
+						free(samplerecord_unlink->pathname);
+					free(samplerecord_unlink);
+				}
+				break;
+
+			case RMDIR_TR:
+				samplerecord_rmdir = (struct trfs_rmdir_record *)malloc(sizeof(struct trfs_rmdir_record));
+
+				memcpy((void *)&samplerecord_rmdir->return_value, (void *)(buff + buffer_offset), sizeof(int));
+				buffer_offset = buffer_offset + sizeof(int);
+
+				memcpy((void *)&samplerecord_rmdir->record_id,(void *)(buff + buffer_offset),  sizeof(int));
+				buffer_offset = buffer_offset + sizeof(int);
+
+				memcpy((void *)&samplerecord_rmdir->pathname_size, (void *)(buff + buffer_offset), sizeof(short));
+				buffer_offset = buffer_offset + sizeof(short);
+
+				samplerecord_rmdir->pathname = malloc(samplerecord_rmdir->pathname_size + 2);
+				samplerecord_rmdir->pathname[0] = '.';
+				memcpy((void *)samplerecord_rmdir->pathname + 1, (void *)(buff + buffer_offset), samplerecord_rmdir->pathname_size);
+				buffer_offset = buffer_offset + samplerecord_rmdir->pathname_size;
+				samplerecord_rmdir->pathname[samplerecord_rmdir->pathname_size + 1] = '\0';
+
+				printf("----------------------------------------------------\n");
+				printf("Record_id is %d\n", samplerecord_rmdir->record_id);
+				printf("Record_size is %d (in bytes)\n", record_size);
+				printf("pathname_size is %d\n", samplerecord_rmdir->pathname_size + 1);
+				printf("pathname is %s\n", samplerecord_rmdir->pathname);
+				printf("return_value is %d\n", samplerecord_rmdir->return_value);
+				printf("Syscall for this record is RMDIR(2)\n");
+				printf("----------------------------------------------------\n");
+
+				if(!n_flag){
+					rc = rmdir(samplerecord_rmdir->pathname);
+					printf("The old return value was %d\n", samplerecord_rmdir->return_value);
+					printf("The new return value is %d\n", rc);
+					if(s_flag == true && rc != samplerecord_rmdir->return_value){
+						printf("Aborting the replay program...Deviation occured\n");
+						if(samplerecord_rmdir){
+							if(samplerecord_rmdir->pathname)
+								free(samplerecord_rmdir->pathname);
+							free(samplerecord_rmdir);
+						}
+						goto strict_clean_label;
+					}
+				}
+				if(samplerecord_rmdir){
+					if(samplerecord_rmdir->pathname)
+						free(samplerecord_rmdir->pathname);
+					free(samplerecord_rmdir);
+				}
+				break;
+
+			case SYMLINK_TR:
+				samplerecord_symlink = (struct trfs_symlink_record*)malloc(sizeof(struct trfs_symlink_record));
+
+				memcpy((void *)&samplerecord_symlink->return_value, (void *)(buff + buffer_offset), sizeof(int));
+				buffer_offset = buffer_offset + sizeof(int);
+
+				memcpy((void *)&samplerecord_symlink->record_id,(void *)(buff + buffer_offset),  sizeof(int));
+				buffer_offset = buffer_offset + sizeof(int);
+				
+
+				memcpy((void *)&samplerecord_symlink->linkpath_size, (void *)(buff + buffer_offset), sizeof(short));
+				buffer_offset = buffer_offset + sizeof(short);
+
+				samplerecord_symlink->linkpath = malloc(samplerecord_symlink->linkpath_size + 2);
+				samplerecord_symlink->linkpath[0] = '.';
+				memcpy((void *)samplerecord_symlink->linkpath + 1, (void *)(buff + buffer_offset), samplerecord_symlink->linkpath_size);
+				buffer_offset = buffer_offset + samplerecord_symlink->linkpath_size;
+				samplerecord_symlink->linkpath[samplerecord_symlink->linkpath_size + 1] = '\0';
+
+				memcpy((void *)&samplerecord_symlink->targetpath_size, (void *)(buff + buffer_offset), sizeof(short));
+				buffer_offset = buffer_offset + sizeof(short);
+
+				samplerecord_symlink->targetpath = malloc(samplerecord_symlink->targetpath_size + 1);
+				//samplerecord_symlink->targetpath[0] = '.';
+				memcpy((void *)samplerecord_symlink->targetpath, (void *)(buff + buffer_offset), samplerecord_symlink->targetpath_size);
+				buffer_offset = buffer_offset + samplerecord_symlink->targetpath_size;
+				samplerecord_symlink->targetpath[samplerecord_symlink->targetpath_size] = '\0';
+
+				printf("----------------------------------------------------\n");
+				printf("Record_id is %d\n", samplerecord_symlink->record_id);
+				printf("Record_size is %d (in bytes)\n", record_size);
+				printf("targetpath_size is %d\n", samplerecord_symlink->targetpath_size + 1);
+				printf("targetpath is %s\n", samplerecord_symlink->targetpath);
+				printf("linkpath_size is %d\n", samplerecord_symlink->linkpath_size + 1);
+				printf("linkpath is %s\n", samplerecord_symlink->linkpath);
+				printf("return_value is %d\n", samplerecord_symlink->return_value);
+				printf("Syscall for this record is SYMLINK(2)\n");
+				printf("----------------------------------------------------\n");
+
+				if(!n_flag){
+					rc = symlink(samplerecord_symlink->targetpath, samplerecord_symlink->linkpath);
+					printf("The old return value was %d\n", samplerecord_symlink->return_value);
+					printf("The new return value is %d\n", rc);
+					if(s_flag == true && rc != samplerecord_symlink->return_value){
+						printf("Aborting the replay program...Deviation occured\n");
+						if(samplerecord_symlink){
+							if(samplerecord_symlink->targetpath)
+								free(samplerecord_symlink->targetpath);
+							if(samplerecord_symlink->linkpath)
+								free(samplerecord_symlink->linkpath);
+							free(samplerecord_symlink);
+						}
+						goto strict_clean_label;
+					}
+				}
+
+				if(samplerecord_symlink){
+					if(samplerecord_symlink->targetpath)
+						free(samplerecord_symlink->targetpath);
+					if(samplerecord_symlink->linkpath)
+						free(samplerecord_symlink->linkpath);
+					free(samplerecord_symlink);
+				}
+				break;
+
+
+			case RENAME_TR:
+				samplerecord_rename = (struct trfs_rename_record*)malloc(sizeof(struct trfs_rename_record));
+
+				memcpy((void *)&samplerecord_rename->oldpathsize, (void *)(buff + buffer_offset), sizeof(short));
+				buffer_offset = buffer_offset + sizeof(short);
+
+				samplerecord_rename->oldpath = malloc(samplerecord_rename->oldpathsize + 2);
+				samplerecord_rename->oldpath[0] = '.';
+				memcpy((void *)samplerecord_rename->oldpath + 1, (void *)(buff + buffer_offset), samplerecord_rename->oldpathsize);
+				buffer_offset = buffer_offset + samplerecord_rename->oldpathsize;
+				samplerecord_rename->oldpath[samplerecord_rename->oldpathsize + 1] = '\0';
+
+				memcpy((void *)&samplerecord_rename->return_value, (void *)(buff + buffer_offset), sizeof(int));
+				buffer_offset = buffer_offset + sizeof(int);
+
+				memcpy((void *)&samplerecord_rename->record_id,(void *)(buff + buffer_offset),  sizeof(int));
+				buffer_offset = buffer_offset + sizeof(int);
+
+				memcpy((void *)&samplerecord_rename->newpathsize, (void *)(buff + buffer_offset), sizeof(short));
+				buffer_offset = buffer_offset + sizeof(short);
+
+				samplerecord_rename->newpath = malloc(samplerecord_rename->newpathsize + 2);
+				samplerecord_rename->newpath[0] = '.';
+				memcpy((void *)samplerecord_rename->newpath + 1, (void *)(buff + buffer_offset), samplerecord_rename->newpathsize);
+				buffer_offset = buffer_offset + samplerecord_rename->newpathsize;
+				samplerecord_rename->newpath[samplerecord_rename->newpathsize + 1] = '\0';
+
+				printf("----------------------------------------------------\n");
+				printf("Record_id is %d\n", samplerecord_rename->record_id);
+				printf("Record_size is %d (in bytes)\n", record_size);
+				printf("old pathname_size is %d\n", samplerecord_rename->oldpathsize + 1);
+				printf("old pathname is %s\n", samplerecord_rename->oldpath);
+				printf("new pathname_size is %d\n", samplerecord_rename->newpathsize + 1);
+				printf("new pathname is %s\n", samplerecord_rename->newpath);
+				printf("return_value is %d\n", samplerecord_rename->return_value);
+				printf("Syscall for this record is RENAME(2)\n");
+				printf("----------------------------------------------------\n");
+
+				if(!n_flag){
+					rc = rename(samplerecord_rename->oldpath, samplerecord_rename->newpath);
+					printf("The old return value was %d\n", samplerecord_rename->return_value);
+					printf("The new return value is %d\n", rc);
+					if(s_flag == true && rc != samplerecord_rename->return_value){
+						printf("Aborting the replay program...Deviation occured\n");
+						if(samplerecord_rename){
+							if(samplerecord_rename->oldpath)
+								free(samplerecord_rename->oldpath);
+							if(samplerecord_rename->newpath)
+								free(samplerecord_rename->newpath);
+							free(samplerecord_rename);
+						}
+						goto strict_clean_label;
+					}
+				}
+
+				if(samplerecord_rename){
+					if(samplerecord_rename->oldpath)
+						free(samplerecord_rename->oldpath);
+					if(samplerecord_rename->newpath)
+						free(samplerecord_rename->newpath);
+					free(samplerecord_rename);
 				}
 				break;
 
@@ -468,8 +696,7 @@ int main(int argc, char *argv[]){
 					printf("Invalid record_type\n");
 
 		}
-
-
+		
 		if(buff)
 			free(buff);
 
@@ -477,7 +704,6 @@ int main(int argc, char *argv[]){
 	goto normal_clean_label;
 
 strict_clean_label:
-	printf("Inside fuckin strict\n");
 	if(buff != NULL)
 		free(buff);
 normal_clean_label:
