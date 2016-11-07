@@ -32,6 +32,11 @@ int main(int argc, char **argv)
   rc = rmdir("/mnt/trfs/hw1/test_hw2_dir_1/");
   printf("rc=%d\n",rc);
 
+  rc = rename("/mnt/trfs/hw1/test_hw2.txt", "/mnt/trfs/hw1/test_hw2_renamed.txt");
+  printf("rc=%d\n",rc);
+  rc = rename("/mnt/trfs/hw1/test_hw2_renamed.txt", "/mnt/trfs/hw1/test_hw2.txt");
+  printf("rc=%d\n",rc);  
+
   // rc = mkdir("/usr/src/hw1-sdige/hw1/test_hw2_dir1", 0644);
   // printf("rc=%d\n",rc);
   // rc = rmdir("/usr/src/hw1-sdige/hw1/test_hw2_dir1");
