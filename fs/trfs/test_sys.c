@@ -51,6 +51,9 @@ int main(int argc, char **argv)
   rc = symlink("/mnt/trfs/hw1/test_hw2.txt", "/mnt/trfs/hw1/test_hw2_symlink11.txt");
   printf("rc=%d\n",rc);
 
+  rc = readlink("/mnt/trfs/hw1/test_hw2_symlink11.txt", buff, 52);
+  printf("rc=%d\n",rc);
+
   rc = unlink("/mnt/trfs/hw1/test_hw2_symlink11.txt");
   printf("rc=%d\n",rc);
 

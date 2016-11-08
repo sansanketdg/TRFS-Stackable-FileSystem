@@ -89,6 +89,7 @@ int main(int argc, char *argv[]){
 			struct trfs_rmdir_record *samplerecord_rmdir;
 			struct trfs_symlink_record *samplerecord_symlink;
 			struct trfs_rename_record *samplerecord_rename;
+			struct trfs_readlink_record *samplerecord_readlink;
 
 			case READ_TR:
 				samplerecord_read = (struct trfs_read_record*)malloc(sizeof(struct trfs_read_record));
@@ -689,6 +690,66 @@ int main(int argc, char *argv[]){
 					if(samplerecord_rename->newpath)
 						free(samplerecord_rename->newpath);
 					free(samplerecord_rename);
+				}
+				break;
+
+			case READLINK_TR:
+				samplerecord_readlink = (struct trfs_readlink_record*)malloc(sizeof(struct trfs_readlink_record));
+
+				memcpy((void *)&samplerecord_readlink->pathname_size, (void *)(buff + buffer_offset), sizeof(short));
+				buffer_offset = buffer_offset + sizeof(short);
+
+				samplerecord_readlink->pathname = malloc(samplerecord_readlink->pathname_size + 2);
+				samplerecord_readlink->pathname[0] = '.';
+				memcpy((void *)samplerecord_readlink->pathname + 1, (void *)(buff + buffer_offset), samplerecord_readlink->pathname_size);
+				buffer_offset = buffer_offset + samplerecord_readlink->pathname_size;
+				samplerecord_readlink->pathname[samplerecord_readlink->pathname_size + 1] = '\0';
+
+				memcpy((void *)&samplerecord_readlink->size, (void *)(buff + buffer_offset), sizeof(unsigned long long));
+				buffer_offset = buffer_offset + sizeof(unsigned long long);
+
+				memcpy((void *)&samplerecord_readlink->return_value, (void *)(buff + buffer_offset), sizeof(int));
+				buffer_offset = buffer_offset + sizeof(int);
+
+				memcpy((void *)&samplerecord_readlink->record_id,(void *)(buff + buffer_offset),  sizeof(int));
+				buffer_offset = buffer_offset + sizeof(int);
+
+				printf("----------------------------------------------------\n");
+				printf("Record_id is %d\n", samplerecord_readlink->record_id);
+				printf("Record_size is %d (in bytes)\n", record_size);
+				printf("pathname_size is %d\n", samplerecord_readlink->pathname_size + 1);
+				printf("pathname is %s\n", samplerecord_readlink->pathname);
+				printf("buffer size is %d\n", samplerecord_readlink->size);
+				printf("return_value is %d\n", samplerecord_readlink->return_value);
+				printf("Syscall for this record is READLINK(2)\n");
+				printf("----------------------------------------------------\n");
+
+				if(!n_flag){
+					//Execute the sys call as n flag is not set
+					free(buff);
+					buff = malloc(samplerecord_readlink->size);
+
+					if(rc != -1){
+						read_ret = readlink(samplerecord_readlink->pathname, buff, samplerecord_readlink->size);
+						printf("The old return value was %d\n", samplerecord_readlink->return_value);
+						printf("The new return value is %d\n", read_ret);
+						if(s_flag == true && read_ret != samplerecord_readlink->return_value){
+							printf("Aborting the replay program...Deviation occured\n");
+							if(samplerecord_readlink){
+								if(samplerecord_readlink->pathname)
+									free(samplerecord_readlink->pathname);
+								free(samplerecord_readlink);
+							}
+							goto strict_clean_label;
+						}
+					}
+
+				}
+
+				if(samplerecord_readlink){
+					if(samplerecord_readlink->pathname)
+						free(samplerecord_readlink->pathname);
+					free(samplerecord_readlink);
 				}
 				break;
 

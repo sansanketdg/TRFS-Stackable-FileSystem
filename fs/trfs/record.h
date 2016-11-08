@@ -8,6 +8,7 @@
 #define RMDIR_TR 128
 #define SYMLINK_TR 256
 #define RENAME_TR 512
+#define READLINK_TR 1024
 
 
 /* trfs record structure used to store to store in file*/
@@ -178,5 +179,19 @@ struct trfs_rename_record
 
 	short newpathsize;
     char *newpath;
+};
+
+struct trfs_readlink_record {
+
+	unsigned short record_size;
+	int record_type;
+	
+	short pathname_size;
+	char *pathname;
+
+	unsigned long long size;
+
+	int return_value;
+	int record_id;
 };
 

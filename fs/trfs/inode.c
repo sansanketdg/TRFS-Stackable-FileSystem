@@ -1258,9 +1258,27 @@ static int trfs_readlink(struct dentry *dentry, char __user *buf, int bufsiz)
 {
 	//printk("Trfs_Readlink called");
 
-	int err;
+	int err, retVal, bitmap;
 	struct dentry *lower_dentry;
 	struct path lower_path;
+
+	struct super_block *sb;
+    struct trfs_sb_info *trfs_sb_info;
+    struct file *filename;
+    char *temp, *path;
+    mm_segment_t oldfs;
+    struct trfs_readlink_record *sample_record;
+
+    temp = NULL;
+    filename=NULL;
+    sample_record = NULL;
+    
+    printk("Trfs_readlink called\n");
+    sb=dentry->d_sb;
+    
+    trfs_sb_info=(struct trfs_sb_info*)sb->s_fs_info;
+    filename=trfs_sb_info->tracefile->filename;
+    bitmap=trfs_sb_info->tracefile->bitmap;
 
 	trfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
@@ -1278,6 +1296,109 @@ static int trfs_readlink(struct dentry *dentry, char __user *buf, int bufsiz)
 
 out:
 	trfs_put_lower_path(dentry, &lower_path);
+
+	//Tracking code
+    if(bitmap & READLINK_TR){   
+        if(filename != NULL){
+            sample_record= kzalloc(sizeof(struct trfs_read_record), GFP_KERNEL);
+            if(sample_record == NULL){
+                err = -ENOMEM;
+                goto out_err;
+            }
+
+            temp = kzalloc(BUFFER_SIZE, GFP_KERNEL);
+            if(temp == NULL){
+                err = -ENOMEM;
+                goto out_err;
+            }
+            temp = kmalloc(BUFFER_SIZE, GFP_KERNEL);
+                            //ar *path = d_path(dentry->dna, temp, PAGE_SIZE);
+            path = dentry_path_raw(dentry, temp, BUFFER_SIZE);
+            printk("Full Path is %s\n", path);
+
+           
+            sample_record->pathname_size = strlen(path);
+
+            sample_record->pathname = kmalloc(sizeof(char)*sample_record->pathname_size, GFP_KERNEL);
+            if(sample_record->pathname == NULL){
+                    err = -ENOMEM;
+                    goto out_err;
+            }
+            memcpy((void *)sample_record->pathname, (void *)path, sample_record->pathname_size);
+
+
+            sample_record->record_size = sizeof(sample_record->record_id) + sizeof(sample_record->record_size) + sizeof(sample_record->record_type)
+                                               + sizeof(sample_record->pathname_size) + sample_record->pathname_size 
+                                               + sizeof(sample_record->size)
+                                               + sizeof(sample_record->return_value);
+
+            sample_record->record_type = READLINK_TR;
+            sample_record->return_value = err;
+            sample_record->size = bufsiz;
+
+            printk("Sample Record -\n");
+            printk("record_id is %d\n", sample_record->record_id);
+            printk("record_size is %d\n", sample_record->record_size);
+            printk("record_type is %d\n", sample_record->record_type);
+            printk("return_value is %d\n", sample_record->return_value);
+            printk("pathname_size - %d\n", sample_record->pathname_size);
+            printk("pathname - %s\n", sample_record->pathname);
+                
+
+
+            //Check if this record size can fit inside the buffer with current offset
+            if(trfs_sb_info->tracefile->buffer_offset + sample_record->record_size >= 2*BUFFER_SIZE){
+                mutex_lock(&trfs_sb_info->tracefile->record_lock);
+
+                oldfs = get_fs();
+                set_fs(get_ds());
+
+                //Flush the buffer to file and reset the offset to 0
+                retVal = vfs_write(filename, trfs_sb_info->tracefile->buffer, trfs_sb_info->tracefile->buffer_offset, &trfs_sb_info->tracefile->offset);
+                printk("number of bytes written %d\n", retVal);
+                trfs_sb_info->tracefile->buffer_offset = 0;
+
+                set_fs(oldfs);
+                mutex_unlock(&trfs_sb_info->tracefile->record_lock);
+            }
+
+            mutex_lock(&trfs_sb_info->tracefile->record_lock);
+            sample_record->record_id = trfs_sb_info->tracefile->record_id++;
+
+
+            memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_size, sizeof(short));
+            trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(short);
+
+            memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_type, sizeof(int));
+            trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(int);
+
+            memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->pathname_size, sizeof(short));
+            trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(short);
+
+            memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)sample_record->pathname, sample_record->pathname_size);
+            trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sample_record->pathname_size;
+
+            memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->size, sizeof(unsigned long long));
+            trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(unsigned long long);
+
+            memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->return_value, sizeof(int));
+            trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(int);
+
+            memcpy((void *)(trfs_sb_info->tracefile->buffer + trfs_sb_info->tracefile->buffer_offset), (void *)&sample_record->record_id, sizeof(int));
+            trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(int);          
+            
+            mutex_unlock(&trfs_sb_info->tracefile->record_lock);
+        }
+    }
+    
+out_err:
+    if(sample_record){
+        if(sample_record->pathname)
+            kfree(sample_record->pathname);
+        kfree(sample_record);
+    }
+    if(temp)
+        kfree(temp);
 	return err;
 }
 

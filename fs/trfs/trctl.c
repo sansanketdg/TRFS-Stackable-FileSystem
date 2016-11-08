@@ -33,7 +33,7 @@ int main(int argc,char *argv[])
 
     if(strcmp(argv[1],"all")==0)
     {
-        bitmap=0x3ff;
+        bitmap=0x7ff;
 
     }  
     else if(strcmp(argv[1],"none")==0)
@@ -49,7 +49,7 @@ int main(int argc,char *argv[])
     else
   	   bitmap=(int)strtol(argv[1],NULL,16);
 
-    if(bitmap>1027)
+    if(bitmap>2047)
     printf("Invalid Bitmap value\n");	
 
 	  printf("Mount Pathname is:%s\n",argv[2]);
