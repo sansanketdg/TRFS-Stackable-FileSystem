@@ -12,41 +12,32 @@
 int main(int argc,char *argv[])
 {
   int fd;
-  int i,j,k=0;
+  int i, j, k = 0;
   int retVal;
   unsigned int actual_bitmap = 0;
   unsigned int bitmap_plus = 0;
   unsigned int bitmap_minus = 0;
   char *option = NULL;
-  option = malloc(sizeof(char)*25);
+  option = malloc(sizeof(char) * 25);
   char call[25];
-  // if(argc<2)
-  // {
-  //   printf("Invalid no of arguments\n");
-  //   return 0;
-  // }  
+  
   #if EXTRA_CREDIT
-
-    //printf("inside xtra credit\n");
   
     fd = open(argv[argc-1], O_RDONLY);
     if(fd<0)
     {
-        printf("\n Invalid Path");
+      printf("Invalid Path\n");
     }
 
-    for(i=1;i<argc-1;i++)
+    for(i = 1; i < argc - 1; i++)
     {
       option=argv[i];
       if(option[0]=='+'||option[0]=='-')
       {
-        //if(option[0]=='+')
-        //{
             k = 0;
             for(j=1;j<strlen(option);j++)
                 call[k++]=option[j];
             call[k]='\0';
-            //printf("%s\n",call);
             if(strcmp(call,"read")==0) 
             {
               if(option[0] == '+')
@@ -143,8 +134,7 @@ int main(int argc,char *argv[])
   #else
   
   //Default IOCTL flow
-
-    if(argc>3)
+    if(argc > 3)
     {
 	    printf("Invalid no of arguments\n");
 	    return 0;
@@ -165,26 +155,30 @@ int main(int argc,char *argv[])
     if(argc==3)
     {
 
-      if(strcmp(argv[1],"all") == 0)
+      if(strcmp(argv[1], "all") == 0)
       {
         actual_bitmap = 0x7ff;
       }  
-      else if(strcmp(argv[1],"none") == 0)
+      else if(strcmp(argv[1], "none") == 0)
       {
         actual_bitmap = 0x000;
       }  
+      else if(!(argv[1][0] == '0' && argv[1][1] == 'x')){
+        printf("Invalid argument\n");
+        return 0;
+      }
       else
   	    actual_bitmap = (int)strtol(argv[1], NULL, 16);
 
       if(actual_bitmap > 2047)
       printf("Invalid Bitmap value\n");	
 
-	    printf("Mount Pathname is:%s\n",argv[2]);
+	    printf("Mount Pathname is: %s\n", argv[2]);
 	
       fd = open(argv[2], O_RDONLY);
       if(fd < 0)
       {
-        printf("\n Invalid Path");
+        printf("Invalid Path\n");
       }
 	    ioctl(fd, TRFS_SET_FLAG, &actual_bitmap);
   
