@@ -10,6 +10,12 @@
 #define RENAME_TR 512
 #define READLINK_TR 1024
 
+#define TRFS_GET_FLAG 0
+#define TRFS_SET_FLAG 10
+
+#define BITMAP_ALL 2047
+#define BITMAP_NONE 0
+
 
 /* trfs record structure used to store to store in file*/
 struct trfs_record {

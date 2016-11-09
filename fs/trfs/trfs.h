@@ -27,6 +27,11 @@
 #include <linux/xattr.h>
 #include <linux/exportfs.h>
 #include <linux/mutex.h>
+#include <linux/kthread.h>
+#include <linux/delay.h>
+
+#define BITMAP_ALL 2047
+#define BITMAP_NONE 0
 
 /* buffer size for wrting to file*/
 #define BUFFER_SIZE PAGE_SIZE
@@ -97,6 +102,7 @@ struct trfs_tracefile_info {
 	long bitmap;
 	char *buffer;
 	int buffer_offset;
+	struct task_struct *my_thread_task;
 };
 
 /* trfs super-block data in memory */

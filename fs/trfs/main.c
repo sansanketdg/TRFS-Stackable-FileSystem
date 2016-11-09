@@ -12,51 +12,74 @@
 #include "trfs.h"
 #include <linux/module.h>
 
+int thread_function(void *data){
+
+	int var = 10, retVal;
+	mm_segment_t oldfs;
+	struct trfs_tracefile_info *tracefile = (struct trfs_tracefile_info *)data;
+    while(!kthread_should_stop()){
+        mutex_lock(&tracefile->record_lock);
+        if(tracefile->buffer_offset > 0){
+        	oldfs = get_fs();
+	        set_fs(get_ds());
+
+	        //Flush the buffer to file and reset the offset to 0
+	        retVal = vfs_write(tracefile->filename, tracefile->buffer, tracefile->buffer_offset, &tracefile->offset);
+	        printk("number of bytes written %d\n", retVal);
+	        tracefile->buffer_offset = 0;
+
+	        set_fs(oldfs);
+        }
+        
+        mutex_unlock(&tracefile->record_lock);
+        msleep(100);
+    }
+  	return var;
+
+}
+
 int process_raw_data_and_create_the_file(char *temp_raw_data, struct super_block *sb)
 {
 	int ret=0;
 	struct trfs_sb_info *sb_info;
-	//char* temp_raw_data = (char* )raw_data;
-	mm_segment_t old_fs;
+	//mm_segment_t old_fs;
 	struct file *trace_file=NULL;
-	unsigned long long offset;
-	int record_id;
-	old_fs = get_fs();
-	set_fs(get_ds());
+	
 	if (temp_raw_data==NULL)
 	{
-		printk("\nMissing arguments");
+		printk("Missing arguments in creating trace file structure\n");
 		ret=-EINVAL;
 		goto out;
+	}
+
+	if(sb->s_fs_info == NULL){
+		printk("Somehow sb_info is NULL\n");
+		goto out;
 	}	
-	
+
 	trace_file = filp_open(temp_raw_data, O_CREAT | O_WRONLY | O_TRUNC , 0644);
-	set_fs(old_fs);
+	
 	if (IS_ERR(trace_file)) {
 		printk("Count't create the file\n");
 		ret= PTR_ERR(trace_file);
+		goto out;
 	}
 
-	offset=0;
-	record_id=0;
-	
-	sb_info = (struct trfs_sb_info *)kzalloc(sizeof(struct trfs_sb_info), GFP_KERNEL);
-	if(sb_info == NULL){
-		ret = -ENOMEM;
-		goto out;
-	}
-	
 	sb_info = (struct trfs_sb_info *)sb->s_fs_info;
-	if(sb_info == NULL){
-		printk("Somehow sb_info is NULL\n");
-		goto out;
-	}
+	
 	sb_info->tracefile = (struct trfs_tracefile_info*)kzalloc(sizeof(struct trfs_tracefile_info) , GFP_KERNEL);
+	if(sb_info->tracefile == NULL){
+		printk("Coudnt allocated memory for tracefile infor struct\n");
+		ret = -ENOMEM;
+		goto close_tracefile;
+	}
 	sb_info->tracefile->filename = trace_file;
-	sb_info->tracefile->offset = offset;
-	sb_info->tracefile->record_id = record_id;
-	sb_info->tracefile->bitmap=1;
+	sb_info->tracefile->offset = 0;
+	sb_info->tracefile->record_id = 0;
+	sb_info->tracefile->bitmap = BITMAP_ALL;
 	mutex_init(&sb_info->tracefile->record_lock);
+	sb_info->tracefile->my_thread_task = kthread_run(&thread_function, (void *)sb_info->tracefile, "sanket_trfs_thread");
+	printk("Kernel Thread for write created: %s\n", sb_info->tracefile->my_thread_task->comm);
 
 	//malloc the buffer with BUFFER_SIZE and set offset to 0
 	sb_info->tracefile->buffer = (char *)kzalloc(BUFFER_SIZE*2, GFP_KERNEL);
@@ -71,6 +94,8 @@ int process_raw_data_and_create_the_file(char *temp_raw_data, struct super_block
 	free_tracefile:
 		if(sb_info->tracefile)
 			kfree(sb_info->tracefile);
+	close_tracefile:
+		filp_close(sb_info->tracefile->filename, 0);
 	out:
 		return ret;
 }

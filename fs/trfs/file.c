@@ -11,6 +11,7 @@
 #include "record.h"
 #include "trfs.h"
 
+
 static ssize_t trfs_read(struct file *file, char __user *buf,
                size_t count, loff_t *ppos)
 {
@@ -366,7 +367,7 @@ static long trfs_unlocked_ioctl(struct file *file, unsigned int cmd,
     long err = -ENOTTY;
     struct file *lower_file;
     struct super_block *sb;
-    unsigned long *val;
+    int *val;
     int gs_value;
     struct trfs_sb_info *sb_info;
     val=kmalloc(sizeof(unsigned long),GFP_KERNEL);
@@ -379,19 +380,21 @@ static long trfs_unlocked_ioctl(struct file *file, unsigned int cmd,
     printk("Cmd is : %d\n",cmd);
     //printk("address is:%d\n",arg);
 
-    err=copy_from_user(val, (void *)arg, sizeof(val));
+    err=copy_from_user(val, (void *)arg, sizeof(int));
     if(err!=0)
         goto out;
     gs_value=*val;
     sb_info=(struct trfs_sb_info*)sb->s_fs_info;
     //printk("SB_info accessed\n");
 
+    printk("arg is %lu\n", arg);
     printk("value is: %d\n",gs_value);
-    if(cmd==1)
+    printk("value is: %d\n",*val);
+    if(cmd == TRFS_SET_FLAG)
     {
      sb_info->tracefile->bitmap=gs_value;       
     }
-    if(cmd==10)
+    if(cmd == TRFS_GET_FLAG)
     { 
         //arg=sb_info->tracefile->bitmap;
         err = copy_to_user((void *)arg, (void *)&sb_info->tracefile->bitmap, sizeof(val));

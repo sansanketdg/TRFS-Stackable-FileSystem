@@ -44,10 +44,12 @@ static void trfs_put_super(struct super_block *sb)
 
 	//Flush the buffer to file and reset the offset to 0
     retVal = vfs_write(trfs_sb_ptr->tracefile->filename, trfs_sb_ptr->tracefile->buffer, trfs_sb_ptr->tracefile->buffer_offset, &trfs_sb_ptr->tracefile->offset);
+ 	
+    set_fs(oldfs);
  	printk("number of bytes written %d\n", retVal);
  	trfs_sb_ptr->tracefile->buffer_offset = 0;
 
-    set_fs(oldfs);
+    
     mutex_unlock(&trfs_sb_ptr->tracefile->record_lock);
 
 	if(trfs_sb_ptr != NULL){
@@ -56,10 +58,10 @@ static void trfs_put_super(struct super_block *sb)
 			kfree(trfs_sb_ptr->tracefile->buffer);
 		if(trfs_sb_ptr->tracefile)
 			kfree(trfs_sb_ptr->tracefile);
+		retVal = kthread_stop(trfs_sb_ptr->tracefile->my_thread_task);
+		printk("KThread destroyed Successsfuly\n");
 		printk("Successsfuly closed the trace-file and freed all the buffers\n");
 	}
-
-	
 
 	/* decrement lower super references */
 	s = trfs_lower_super(sb);
