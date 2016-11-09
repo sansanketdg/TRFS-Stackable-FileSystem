@@ -27,40 +27,50 @@ static void trfs_put_super(struct super_block *sb)
 	struct trfs_sb_info *spd;
 	struct super_block *s;
 
-	printk("inside trfs_put_super\n");
+	#if DEBUG_SET
+	printk("Inside trfs_put_super\n");
+	#endif
 
 	spd = TRFS_SB(sb);
 	if (!spd)
 		return;
 
-	/*close file from tracefile_info struct in sb*/
+	/* close file from tracefile_info struct in sb */
 	trfs_sb_ptr = (struct trfs_sb_info *)sb->s_fs_info;
 
-	//Flush all the buffer to the output file
+	/* flush all the buffer to the output file if any data */
 	mutex_lock(&trfs_sb_ptr->tracefile->record_lock);
 
-    oldfs = get_fs();
-	set_fs(get_ds());
+	if(trfs_sb_ptr->tracefile->buffer_offset > 0){
+		oldfs = get_fs();
+		set_fs(get_ds());
 
-	//Flush the buffer to file and reset the offset to 0
-    retVal = vfs_write(trfs_sb_ptr->tracefile->filename, trfs_sb_ptr->tracefile->buffer, trfs_sb_ptr->tracefile->buffer_offset, &trfs_sb_ptr->tracefile->offset);
- 	
-    set_fs(oldfs);
- 	printk("number of bytes written %d\n", retVal);
- 	trfs_sb_ptr->tracefile->buffer_offset = 0;
-
+		/* flush the buffer to file and reset the offset to 0 */
+	    retVal = vfs_write(trfs_sb_ptr->tracefile->filename, trfs_sb_ptr->tracefile->buffer, trfs_sb_ptr->tracefile->buffer_offset, &trfs_sb_ptr->tracefile->offset);
+	 	
+	    set_fs(oldfs);
+	    #if DEBUG_SET
+	 		printk("Number of bytes written %d\n", retVal);
+	 	#endif
+	 	trfs_sb_ptr->tracefile->buffer_offset = 0;
+	}
     
     mutex_unlock(&trfs_sb_ptr->tracefile->record_lock);
 
+	/* clean all the tracefile stucture by cleaning buffers and stopping the write thread */
 	if(trfs_sb_ptr != NULL){
 		filp_close(trfs_sb_ptr->tracefile->filename, 0);
 		if(trfs_sb_ptr->tracefile->buffer)
 			kfree(trfs_sb_ptr->tracefile->buffer);
+		retVal = kthread_stop(trfs_sb_ptr->tracefile->my_thread_task);
+		#if DEBUG_SET
+		printk("Kernel Thread - %s destroyed Successsfuly\n", trfs_sb_ptr->tracefile->my_thread_task->comm);
+		#endif
 		if(trfs_sb_ptr->tracefile)
 			kfree(trfs_sb_ptr->tracefile);
-		retVal = kthread_stop(trfs_sb_ptr->tracefile->my_thread_task);
-		printk("KThread destroyed Successsfuly\n");
+		#if DEBUG_SET
 		printk("Successsfuly closed the trace-file and freed all the buffers\n");
+		#endif
 	}
 
 	/* decrement lower super references */

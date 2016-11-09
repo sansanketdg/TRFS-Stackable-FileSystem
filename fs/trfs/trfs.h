@@ -30,6 +30,10 @@
 #include <linux/kthread.h>
 #include <linux/delay.h>
 
+/* set this to 1 to see kernel begug messseges or else 0 */
+#define DEBUG_SET 1
+
+/* this sets the default behavior of bitmap used for tracing different operations of system calls */
 #define BITMAP_ALL 2047
 #define BITMAP_NONE 0
 
@@ -110,20 +114,6 @@ struct trfs_sb_info {
 	struct super_block *lower_sb;
 	struct trfs_tracefile_info *tracefile;
 };
-
-// /* trfs record structure used to store to store in file*/
-// struct trfs_record {
-// 	int record_id;
-// 	unsigned short record_size;
-// 	unsigned char record_type;
-// 	int open_flags;
-// 	int permission_mode;
-// 	short pathname_size;
-// 	char *pathname;
-// 	int return_value;
-
-// 	unsigned char mybitmap;
-// };
 
 /*
  * inode to private data

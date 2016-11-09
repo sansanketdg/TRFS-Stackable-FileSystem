@@ -12,6 +12,7 @@
 #include "trfs.h"
 #include <linux/module.h>
 
+/* this is the kthred designated function that will be executed after every 1 sec delay */
 int thread_function(void *data){
 
 	int var = 10, retVal;
@@ -25,42 +26,49 @@ int thread_function(void *data){
 
 	        //Flush the buffer to file and reset the offset to 0
 	        retVal = vfs_write(tracefile->filename, tracefile->buffer, tracefile->buffer_offset, &tracefile->offset);
+	        #if DEBUG_SET
 	        printk("number of bytes written %d\n", retVal);
+	        #endif
 	        tracefile->buffer_offset = 0;
 
 	        set_fs(oldfs);
         }
         
         mutex_unlock(&tracefile->record_lock);
-        msleep(100);
+        msleep(1000);
     }
   	return var;
 
 }
 
+/* this function will process the tfile= option and create the file and other initialization of tracefile structure */
 int process_raw_data_and_create_the_file(char *temp_raw_data, struct super_block *sb)
 {
 	int ret=0;
 	struct trfs_sb_info *sb_info;
-	//mm_segment_t old_fs;
 	struct file *trace_file=NULL;
 	
 	if (temp_raw_data==NULL)
 	{
-		printk("Missing arguments in creating trace file structure\n");
+		printk(KERN_ERR "trfs: Missing arguments in creating trace file structure\n");
 		ret=-EINVAL;
 		goto out;
 	}
 
 	if(sb->s_fs_info == NULL){
-		printk("Somehow sb_info is NULL\n");
+		printk(KERN_ERR "trfs: Somehow sb_info is NULL\n");
 		goto out;
-	}	
+	}
+
+	if(strncmp("tfile=", temp_raw_data, 6) != 0){
+ 		printk(KERN_ERR "trfs: tfile options is not provide...please provide 'tfile:<filename>' option while mounting.\n");
+ 		goto out;
+ 	}
+ 	temp_raw_data = temp_raw_data + 6;
 
 	trace_file = filp_open(temp_raw_data, O_CREAT | O_WRONLY | O_TRUNC , 0644);
-	
-	if (IS_ERR(trace_file)) {
-		printk("Count't create the file\n");
+	if (IS_ERR(trace_file)){
+		printk(KERN_ERR "trfs: Count't create the file\n");
 		ret= PTR_ERR(trace_file);
 		goto out;
 	}
@@ -69,22 +77,25 @@ int process_raw_data_and_create_the_file(char *temp_raw_data, struct super_block
 	
 	sb_info->tracefile = (struct trfs_tracefile_info*)kzalloc(sizeof(struct trfs_tracefile_info) , GFP_KERNEL);
 	if(sb_info->tracefile == NULL){
-		printk("Coudnt allocated memory for tracefile infor struct\n");
+		printk(KERN_ERR "trfs: Coudnt allocated memory for tracefile infor struct\n");
 		ret = -ENOMEM;
 		goto close_tracefile;
 	}
+
 	sb_info->tracefile->filename = trace_file;
 	sb_info->tracefile->offset = 0;
 	sb_info->tracefile->record_id = 0;
 	sb_info->tracefile->bitmap = BITMAP_ALL;
 	mutex_init(&sb_info->tracefile->record_lock);
 	sb_info->tracefile->my_thread_task = kthread_run(&thread_function, (void *)sb_info->tracefile, "sanket_trfs_thread");
+	#if DEBUG_SET
 	printk("Kernel Thread for write created: %s\n", sb_info->tracefile->my_thread_task->comm);
+	#endif
 
 	//malloc the buffer with BUFFER_SIZE and set offset to 0
 	sb_info->tracefile->buffer = (char *)kzalloc(BUFFER_SIZE*2, GFP_KERNEL);
 	if(sb_info->tracefile->buffer == NULL){
-		printk("Coudnt allocate buffer for BUFFER_SIZE\n");
+		printk("trfs: Coudnt allocate buffer for BUFFER_SIZE\n");
 		ret = -ENOMEM;
 		goto free_tracefile;
 	}
@@ -141,6 +152,7 @@ static int trfs_read_super(struct super_block *sb, void *raw_data, int silent)
 		goto out_free;
 	}
 
+	/* Process the options provided while mounting */
 	err = process_raw_data_and_create_the_file(options_data->tracefile_path, sb);
 	if (err) {
 		printk(KERN_ERR	"trfs: error creating trace file "
@@ -223,23 +235,12 @@ out:
 struct dentry *trfs_mount(struct file_system_type *fs_type, int flags,
 			    const char *dev_name, void *raw_data)
 {
-	//void *lower_path_name = (void *) dev_name;
 	struct trfs_options_data *options_data;
 	void *raw_options_data;
-	char *temp_raw_data;
 
- 	temp_raw_data = (char *)raw_data;
 	options_data = (struct trfs_options_data*)kmalloc(sizeof(struct trfs_options_data), GFP_KERNEL);	
 	options_data->lower_fs_path = (char *)dev_name;
 	options_data->tracefile_path = (char *)raw_data;
-  
-	//int return_function=0;
-
-	//return_function = process_raw_data_and_create_the_file(raw_data);	
-	//return_function = process_raw_data_and_create_the_file(temp_raw_data);
-
-	printk("######dev_name is - %s\n", dev_name);	
-	printk("######Raw data is - %s\n", temp_raw_data);
 	
 	raw_options_data = (void *)options_data;		
 	return mount_nodev(fs_type, flags, raw_options_data,

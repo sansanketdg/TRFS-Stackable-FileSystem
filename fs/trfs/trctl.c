@@ -20,15 +20,9 @@ int main(int argc,char *argv[])
   char *option = NULL;
   option = malloc(sizeof(char)*25);
   char call[25];
-  // if(argc<2)
-  // {
-  //   printf("Invalid no of arguments\n");
-  //   return 0;
-  // }  
+  
   #if EXTRA_CREDIT
 
-    //printf("inside xtra credit\n");
-  
     fd = open(argv[argc-1], O_RDONLY);
     if(fd<0)
     {
@@ -40,13 +34,10 @@ int main(int argc,char *argv[])
       option=argv[i];
       if(option[0]=='+'||option[0]=='-')
       {
-        //if(option[0]=='+')
-        //{
             k = 0;
             for(j=1;j<strlen(option);j++)
                 call[k++]=option[j];
             call[k]='\0';
-            //printf("%s\n",call);
             if(strcmp(call,"read")==0) 
             {
               if(option[0] == '+')
@@ -136,14 +127,11 @@ int main(int argc,char *argv[])
     
     retVal = ioctl(fd,TRFS_SET_FLAG,&actual_bitmap);
     printf("The present bitmap value is 0x%x\n",actual_bitmap);
-  
     close(fd);
-    
 
   #else
   
   //Default IOCTL flow
-
     if(argc>3)
     {
 	    printf("Invalid no of arguments\n");
