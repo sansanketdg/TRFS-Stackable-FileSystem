@@ -4,13 +4,13 @@
 We have implemented a stackable tracing file system: Trfs which records 11 system calls and gives the facility to replay it when required
 
 INSTALLATION:
-------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------
  1. Make kernel using kernel.config provided in hw2-cse506g42 and do a make
- 2. Run install_modules.sh kept in fs/trfs folder
+ 2. go to cd/fs/trfs/ and make 
+ 3. Run install_modules.sh kept in fs/trfs folder
 			:sh install_modules.sh
 			It does insmod fs/trfs.ko
- 3. go to cd/fs/trfs/ and make 
- 4.Mounting the file system as:
+ 4. Mounting the file system as:
 	# mount -t trfs -o tfile=/tmp/tfile1.txt /some/lower/path /mnt/trfs
 	where /tmp/tfile.txt is the tracefile on which records would be logged
 	Make sure log file is written anywhere OUTSIDE lower/path 
@@ -47,7 +47,8 @@ INSTALLATION:
  
  9. To replay the tfile (treplay.c and treplay (executable) file kept in fs/hw2):
 	unmount /mnt/trfs/ (Not necesssary if you are replaying in a folder outside /mnt/trfs/)
-	Run the program in the required directory where you want to see the same state(not within the /mnt/trfs)
+	Run the program in the required directory where you want to see the same state .(not within the /mnt/trfs)
+
 	$ ./treplay [-ns] TFILE
 	TFILE: the trace file to replay
 	-n: show what records will be replayed but don't replay them
@@ -59,8 +60,11 @@ INSTALLATION:
 			  No replay occurs.
 	When -s mode: Replay occurs only till there is no deviation in the replayed and the actual system call.
 			  If deviation occurs,program is aborted
+
+NOTE - Set DEBUG_SET flag in trfs.h file to 0 if you do not want any debugging messages in kernel logs.
   
 DESIGN DECISIONS AND FEATURES:
+-------------------------------------------------------------------------------
 
 1. The record contains all possible information needed to replay the syscalls.
 2. To improve cache locality and avoid wasting of memory,a generic record type wasnt used but system calls specific record type were used.
@@ -74,6 +78,7 @@ DESIGN DECISIONS AND FEATURES:
 	The major reason for using mutex lock was because it was followed by io task which can consume time and occupy cpu cycles..nd hence no spinlock
 	
 EXTRA_CREDIT:
+-------------------------------------------------------------------------------
 
 -	To run incremental ioctl,set EXTRA_CREDIT Flag to 1 in record.h file in hw2/
 	Incremental ioctl can be run as follows:
@@ -84,6 +89,8 @@ EXTRA_CREDIT:
 	tracing read.
 
 DELIVERABLES:
+-------------------------------------------------------------------------------
+
 --Kernel.config
 --files inside fs/trfs/
 --hw2/treplay.c and hw2/trctl.c
