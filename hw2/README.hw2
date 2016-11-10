@@ -75,10 +75,17 @@ DESIGN DECISIONS AND FEATURES:
 	
 EXTRA_CREDIT:
 
--	To run incremental ioctl,set EXTRA_CREDIT Flag to 1 in trctl.c file in fs/trfs/
+-	To run incremental ioctl,set EXTRA_CREDIT Flag to 1 in record.h file in hw2/
 	Incremental ioctl can be run as follows:
 
 	$ ./trctl +open -read +write /mounted/path
 
 	would issue a single ioctl to enable tracing open and write, and disable
 	tracing read.
+
+DELIVERABLES:
+--Kernel.config
+--files inside fs/trfs/
+--hw2/treplay.c and hw2/trctl.c
+--Makefile at fs/trfs and hw2 to complile the codes.
+
