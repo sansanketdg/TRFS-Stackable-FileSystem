@@ -1,0 +1,84 @@
+
+										TRFS - STACKABLE TRACEABLE FILE SYSTEM
+										--------------------------------------
+We have implemented a stackable tracing file system: Trfs which records 11 system calls and gives the facility to replay it when required
+
+INSTALLATION:
+------------------------------------------------------------------------------------------------------------------------------------------
+ 1. Make kernel using kernel.config provided in hw2-cse506g42 and do a make
+ 2. Run install_modules.sh kept in fs/trfs folder
+			:sh install_modules.sh
+			It does insmod fs/trfs.ko
+ 3. go to cd/fs/trfs/ and make 
+ 4.Mounting the file system as:
+	# mount -t trfs -o tfile=/tmp/tfile1.txt /some/lower/path /mnt/trfs
+	where /tmp/tfile.txt is the tracefile on which records would be logged
+	Make sure log file is written anywhere OUTSIDE lower/path 
+	Tfile argument is mandatory,otherwise mounting doesnt happen and it throws error
+	If the file doesnt exist,a new file is created otherwise the older file is truncated and overwritten.
+
+ 5. The supported system calls with their decimal values are:
+		MKDIR 1
+		OPEN 2
+		READ 4
+		WRITE 8
+		CLOSE 16
+		LINK 32
+		UNLINK 64
+		RMDIR 128
+		SYMLINK 256
+		RENAME 512
+		READLINK 1024
+
+ 6.	To set bitmap values for tracing (trctle.c and trctl (executable) file kept in fs/hw2):
+	By Default: Tracing is enabled for all system calls(11 supported).
+	Tracing for particular/set of operations:
+	a. To set tracing for a particular operation,use the hexadecimal notation of the corresponding system call(given above) 
+	b. To set tracing for a number of operations:sum up the decimal of the respective system calls,convert it into hexadecimal and pass it to trctl
+	
+	$ ./trctl CMD /mounted/path
+	"all": to enable tracing for all f/s methods
+	"none": to disable tracing for all f/s methods
+	0xNN: hex number to pass bitmap of methods to trace or not
+ 7. To get the current value of the bitmap and display it in hex
+	$ ./trctl /mounted/path
+
+ 8. Now you can cd to /mnt/trfs and issue normal file system commands(which you would want to replay)
+ 
+ 9. To replay the tfile (treplay.c and treplay (executable) file kept in fs/hw2):
+	unmount /mnt/trfs/ (Not necesssary if you are replaying in a folder outside /mnt/trfs/)
+	Run the program in the required directory where you want to see the same state(not within the /mnt/trfs)
+	$ ./treplay [-ns] TFILE
+	TFILE: the trace file to replay
+	-n: show what records will be replayed but don't replay them
+	-s: strict mode -- abort replaying as soon as a deviation occurs
+	By default[no flag set],system calls that can/cant be replayed are displayed.
+	The reason why the system call wasnt replayed is shown too.
+	Then,sytem calls in the file will be replayed and we can see the return value of the actual and the replayed system call
+	When -n mode: The system calls that can/cant be replayed are shown along with the reason.
+			  No replay occurs.
+	When -s mode: Replay occurs only till there is no deviation in the replayed and the actual system call.
+			  If deviation occurs,program is aborted
+  
+DESIGN DECISIONS AND FEATURES:
+
+1. The record contains all possible information needed to replay the syscalls.
+2. To improve cache locality and avoid wasting of memory,a generic record type wasnt used but system calls specific record type were used.
+3. Each time a trace record is created for a particular system call, instead of directly writing this record to the trace file, we store this inside a 'tracing record buffer' to reduce the i/o calls.
+4. The 'tracing record buffer' is initialised at the time of mouting for a size equal to 2*BUFFER_SIZE where BUFFER_SIZE is defined in the trfs.h file.
+5. Implementation of a kernel thread at the time of mounting. This thread will check, after every second, if there is anything in the 'tracing record buffer' to write to the tracefile.
+	If the buffer has some data, it flushed it to the tracefile. At the time of unmounting, this thread is destroyed.
+6. Sometimes, there can be few entires in a particular record which might cause the record size to go beyond the size of 'tracing record buffer'. In such cases, we write the static-size part of a record into the buffer and flush  it to the file.
+	After doing that, we directly write the 'bigger' record-member (can be write buffer in case of WRITE(2)), to the tracefile instead of storing it in memory. (i.e. 'tracing record buffer')
+7. 	Mutex lock was used to ensure the serialization of records(incremental record ids).
+	The major reason for using mutex lock was because it was followed by io task which can consume time and occupy cpu cycles..nd hence no spinlock
+	
+EXTRA_CREDIT:
+
+-	To run incremental ioctl,set EXTRA_CREDIT Flag to 1 in trctl.c file in fs/trfs/
+	Incremental ioctl can be run as follows:
+
+	$ ./trctl +open -read +write /mounted/path
+
+	would issue a single ioctl to enable tracing open and write, and disable
+	tracing read.
