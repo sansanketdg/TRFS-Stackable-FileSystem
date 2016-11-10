@@ -77,8 +77,6 @@ int main(int argc, char *argv[]){
 		memcpy((void *)&record_type, (void *)(buff + buffer_offset), sizeof(int));
 		buffer_offset = buffer_offset + sizeof(int);
 
-		printf("record type is %d\n", record_type);
-
 		switch((int)record_type){
 			struct trfs_read_record *samplerecord_read;
 			struct trfs_open_record *samplerecord_open;
@@ -127,12 +125,23 @@ int main(int argc, char *argv[]){
 				printf("Syscall for this record is READ(2)\n");
 				printf("----------------------------------------------------\n");
 
-				if(!n_flag){
+				if(n_flag){
+					for(i = 0; i < mapping_count; i++){
+						if(mapping_arr[i][0] == (int)samplerecord_read->file_address)
+							break;
+					}
+					if(i == mapping_count)
+						printf("Record cannot be replayed...No OPEN(2) call for this sys-call\n");
+					else
+						printf("Record can be replayed\n");
+				}
+
+				else{
 					//Execute the sys call as n flag is not set
 					free(buff);
 					buff = malloc(samplerecord_read->size);
 					for(i = 0; i < mapping_count; i++){
-						if(mapping_arr[i][0] == samplerecord_read->file_address)
+						if(mapping_arr[i][0] == (int)samplerecord_read->file_address)
 							rc = mapping_arr[i][1];
 					}
 					if(rc != -1){
@@ -198,7 +207,16 @@ int main(int argc, char *argv[]){
 				printf("Syscall for this record is OPEN(2)\n");
 				printf("----------------------------------------------------\n");
 
-				if(!n_flag){
+				if(n_flag){
+					//Create a row entry in mapping table
+					mapping_arr = (int **)realloc(mapping_arr, (mapping_count + 1)*sizeof(mapping_arr));
+					mapping_arr[mapping_count] = (int *)malloc(1*sizeof(int));
+					//Fill the row with address and corresponding fd
+					mapping_arr[mapping_count][0] = (int)samplerecord_open->file_address;
+					mapping_count++;
+					printf("Record can be replayed\n");
+				}
+				else{
 					rc = open(samplerecord_open->pathname, samplerecord_open->open_flags, samplerecord_open->permission_mode);
 					printf("The old file descriptor was %d\n", samplerecord_open->return_value);
 					printf("The new file descriptor is %d\n", rc);
@@ -216,7 +234,7 @@ int main(int argc, char *argv[]){
 					mapping_arr = (int **)realloc(mapping_arr, (mapping_count + 1)*sizeof(mapping_arr));
 					mapping_arr[mapping_count] = (int *)malloc(2*sizeof(int));
 					//Fill the row with address and corresponding fd
-					mapping_arr[mapping_count][0] = samplerecord_open->file_address;
+					mapping_arr[mapping_count][0] = (int)samplerecord_open->file_address;
 					mapping_arr[mapping_count][1] = rc;
 					mapping_count++;
 				}
@@ -268,12 +286,22 @@ int main(int argc, char *argv[]){
 				printf("Syscall for this record is WRITE(2)\n");
 				printf("----------------------------------------------------\n");
 
-				if(!n_flag){
+				if(n_flag){
+					for(i = 0; i < mapping_count; i++){
+						if(mapping_arr[i][0] == (int)samplerecord_write->file_address)
+							break;
+					}
+					if(i == mapping_count)
+						printf("Record cannot be replayed...No OPEN(2) call for this sys-call\n");
+					else
+						printf("Record can be replayed\n");
+				}
+				else{
 					//Execute the sys call as n flag is not set
 					free(buff);
 					buff = malloc(samplerecord_write->size);
 					for(i = 0; i < mapping_count; i++){
-						if(mapping_arr[i][0] == samplerecord_write->file_address)
+						if(mapping_arr[i][0] == (int)samplerecord_write->file_address)
 							rc = mapping_arr[i][1];
 					}
 					if(rc != -1){
@@ -335,14 +363,26 @@ int main(int argc, char *argv[]){
 				printf("Syscall for this record is CLOSE(2)\n");
 				printf("----------------------------------------------------\n");
 
-	            if(!n_flag){
+				if(n_flag){
+					for(i = 0; i < mapping_count; i++){
+						if(mapping_arr[i][0] == (int)samplerecord_close->file_address)
+							break;
+					}
+					if(i == mapping_count)
+						printf("Record cannot be replayed...No OPEN(2) call for this sys-call\n");
+					else
+						printf("Record can be replayed\n");
+				}
+	            else{
 					//Execute the sys call as n flag is not set
 					for(i = 0; i < mapping_count; i++){
-						if(mapping_arr[i][0] == samplerecord_close->file_address)
+						if(mapping_arr[i][0] == (int)samplerecord_close->file_address)
 							rc = mapping_arr[i][1];
 					}
 					if(rc != -1){
-						close(rc);
+						read_ret = close(rc);
+						printf("The old return value was %d\n", samplerecord_close->return_value);
+						printf("The new return value is %d\n", read_ret);
 					}
 				}
 				if(samplerecord_close){
@@ -390,7 +430,10 @@ int main(int argc, char *argv[]){
 				printf("Syscall for this record is LINK(2)\n");
 				printf("----------------------------------------------------\n");
 
-				if(!n_flag){
+				if(n_flag){
+					printf("Record can be replayed\n");
+				}
+				else{
 					rc = link(samplerecord_link->oldpath, samplerecord_link->newpath);
 					printf("The old return value was %d\n", samplerecord_link->return_value);
 					printf("The new return value is %d\n", rc);
@@ -447,7 +490,10 @@ int main(int argc, char *argv[]){
 				printf("Syscall for this record is MKDIR(2)\n");
 				printf("----------------------------------------------------\n");
 
-				if(!n_flag){
+				if(n_flag){
+					printf("Record can be replayed\n");
+				}
+				else{
 					rc = mkdir(samplerecord_mkdir->pathname, samplerecord_mkdir->permission_mode);
 					printf("The old return value was %d\n", samplerecord_mkdir->return_value);
 					printf("The new return value is %d\n", rc);
@@ -495,7 +541,10 @@ int main(int argc, char *argv[]){
 				printf("Syscall for this record is UNLINK(2)\n");
 				printf("----------------------------------------------------\n");
 
-				if(!n_flag){
+				if(n_flag){
+					printf("Record can be replayed\n");
+				}
+				else{
 					rc = unlink(samplerecord_unlink->pathname);
 					printf("The old return value was %d\n", samplerecord_unlink->return_value);
 					printf("The new return value is %d\n", rc);
@@ -543,7 +592,10 @@ int main(int argc, char *argv[]){
 				printf("Syscall for this record is RMDIR(2)\n");
 				printf("----------------------------------------------------\n");
 
-				if(!n_flag){
+				if(n_flag){
+					printf("Record can be replayed\n");
+				}
+				else{
 					rc = rmdir(samplerecord_rmdir->pathname);
 					printf("The old return value was %d\n", samplerecord_rmdir->return_value);
 					printf("The new return value is %d\n", rc);
@@ -603,7 +655,10 @@ int main(int argc, char *argv[]){
 				printf("Syscall for this record is SYMLINK(2)\n");
 				printf("----------------------------------------------------\n");
 
-				if(!n_flag){
+				if(n_flag){
+					printf("Record can be replayed\n");
+				}
+				else{
 					rc = symlink(samplerecord_symlink->targetpath, samplerecord_symlink->linkpath);
 					printf("The old return value was %d\n", samplerecord_symlink->return_value);
 					printf("The new return value is %d\n", rc);
@@ -668,7 +723,10 @@ int main(int argc, char *argv[]){
 				printf("Syscall for this record is RENAME(2)\n");
 				printf("----------------------------------------------------\n");
 
-				if(!n_flag){
+				if(n_flag){
+					printf("Record can be replayed\n");
+				}
+				else{
 					rc = rename(samplerecord_rename->oldpath, samplerecord_rename->newpath);
 					printf("The old return value was %d\n", samplerecord_rename->return_value);
 					printf("The new return value is %d\n", rc);
@@ -725,7 +783,10 @@ int main(int argc, char *argv[]){
 				printf("Syscall for this record is READLINK(2)\n");
 				printf("----------------------------------------------------\n");
 
-				if(!n_flag){
+				if(n_flag){
+					printf("Record can be replayed\n");
+				}
+				else{
 					//Execute the sys call as n flag is not set
 					free(buff);
 					buff = malloc(samplerecord_readlink->size);
@@ -770,10 +831,8 @@ strict_clean_label:
 		free(buff);
 normal_clean_label:
 	if(mapping_arr != NULL){
-		printf("Freeing table\n");
 		for (i = 0; i < mapping_count; i++){
 			if(mapping_arr[i]!= NULL){
-				printf("Freeing %d elemet\n", i);
          		free(mapping_arr[i]);
 			}
 		}

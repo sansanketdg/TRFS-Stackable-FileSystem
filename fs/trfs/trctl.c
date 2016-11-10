@@ -144,8 +144,8 @@ int main(int argc,char *argv[])
       {
         printf("\n Invalid Path");
       }
-      ioctl(fd,TRFS_GET_FLAG,&actual_bitmap);
-      printf("The present bitmap value is 0x%x\n",actual_bitmap);
+      retVal = ioctl(fd,TRFS_GET_FLAG,&actual_bitmap);
+      printf("The present bitmap value is 0x%x\n", actual_bitmap);
   
       close(fd);
 
@@ -174,7 +174,9 @@ int main(int argc,char *argv[])
       {
         printf("\n Invalid Path");
       }
-	    ioctl(fd, TRFS_SET_FLAG, &actual_bitmap);
+	    retVal = ioctl(fd, TRFS_SET_FLAG, &actual_bitmap);
+
+      printf("Bitmap is now set to 0x%x successfully\n", actual_bitmap);
   
       close(fd);
     }
