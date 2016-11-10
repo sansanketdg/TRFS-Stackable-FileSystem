@@ -29,7 +29,6 @@ static ssize_t trfs_read(struct file *file, char __user *buf,
     filename=NULL;
     sample_record = NULL;
     
-    printk("Trfs_read called\n");
     sb=file->f_inode->i_sb;
     
     trfs_sb_info=(struct trfs_sb_info*)sb->s_fs_info;
@@ -46,8 +45,11 @@ static ssize_t trfs_read(struct file *file, char __user *buf,
                     file_inode(lower_file));
     }
 
-    //Tracking code
-    if(bitmap & READ_TR){   
+    /* tracking code */
+    if(bitmap & READ_TR){
+        #if DEBUG_SET
+        printk("Tracing READ(2) call\n");   
+        #endif
         if(filename != NULL){
             sample_record= kzalloc(sizeof(struct trfs_read_record), GFP_KERNEL);
             if(sample_record == NULL){
@@ -97,7 +99,9 @@ static ssize_t trfs_read(struct file *file, char __user *buf,
 
                 //Flush the buffer to file and reset the offset to 0
                 retVal = vfs_write(filename, trfs_sb_info->tracefile->buffer, trfs_sb_info->tracefile->buffer_offset, &trfs_sb_info->tracefile->offset);
+                #if DEBUG_SET
                 printk("number of bytes written %d\n", retVal);
+                #endif
                 trfs_sb_info->tracefile->buffer_offset = 0;
 
                 set_fs(oldfs);
@@ -165,10 +169,7 @@ static ssize_t trfs_write(struct file *file, const char __user *buf,
     temp =NULL;
     filename=NULL;
     sample_record = NULL;
-        
-        
-    //char* buffer;
-    printk("Trfs_write called\n");
+    
     sb=file->f_inode->i_sb;
 
     trfs_sb_info=(struct trfs_sb_info*)sb->s_fs_info;
@@ -186,16 +187,15 @@ static ssize_t trfs_write(struct file *file, const char __user *buf,
     }
 
     if(bitmap & WRITE_TR){
+        #if DEBUG_SET
+        printk("Tracing WRITE(2) call\n");   
+        #endif
         if(filename != NULL){
 
             sample_record= kzalloc(sizeof(struct trfs_write_record), GFP_KERNEL);
             temp = kmalloc(BUFFER_SIZE, GFP_KERNEL);
            
-                            //ar *path = d_path(dentry->dna, temp, PAGE_SIZE);
             path = dentry_path_raw(file->f_path.dentry, temp, BUFFER_SIZE);
-
-            printk("Full Path is %s\n", path);
-
             sample_record->pathname_size = strlen(path);
 
             sample_record->pathname = kmalloc(sizeof(char)*sample_record->pathname_size, GFP_KERNEL);
@@ -210,14 +210,13 @@ static ssize_t trfs_write(struct file *file, const char __user *buf,
                                                + sizeof(sample_record->size)
                                                + sizeof(sample_record->return_value) + sizeof(sample_record->file_address)+count;
 
-            sample_record->record_type=WRITE_TR;
-            sample_record->size=count;
+            sample_record->record_type = WRITE_TR;
+            sample_record->size = count;
             sample_record->return_value = err;
             sample_record->file_address = (unsigned long long)file;
 
+            /* if write buffer count is too big i.e greater that BUFFER_SIZE/2 write the buffer directly to file instead of storing it to trfs buffer for writing to log file later*/
             if(count > BUFFER_SIZE/2){
-                //Write count is greater than page size...so flush the buffer
-                printk("count > BUFFER_SIZE/2...BUFFER overflow in write\n");
                 mutex_lock(&trfs_sb_info->tracefile->record_lock);
 
                 oldfs = get_fs();
@@ -258,12 +257,16 @@ static ssize_t trfs_write(struct file *file, const char __user *buf,
                 trfs_sb_info->tracefile->buffer_offset = trfs_sb_info->tracefile->buffer_offset + sizeof(int);
 
                 retVal = vfs_write(filename, trfs_sb_info->tracefile->buffer, trfs_sb_info->tracefile->buffer_offset, &trfs_sb_info->tracefile->offset);
+                #if DEBUG_SET
                 printk("number of bytes written %d\n", retVal);
+                #endif
                 trfs_sb_info->tracefile->buffer_offset = 0;
 
                 //Write the entire write-buf to the file 
                 retVal = vfs_write(filename, buf, count, &trfs_sb_info->tracefile->offset);
+                #if DEBUG_SET
                 printk("writing the write buf directly to log file\n");
+                #endif
 
                 set_fs(oldfs);
                 mutex_unlock(&trfs_sb_info->tracefile->record_lock);
@@ -370,38 +373,26 @@ static long trfs_unlocked_ioctl(struct file *file, unsigned int cmd,
     int *val;
     int gs_value;
     struct trfs_sb_info *sb_info;
-    val=kmalloc(sizeof(unsigned long),GFP_KERNEL);
-    sb=file->f_inode->i_sb;
+    val = kmalloc(sizeof(unsigned long),GFP_KERNEL);
+    sb = file->f_inode->i_sb;
 
-    //printk("Super block accessed\n");
-
-    //val=arg;
-    printk("trfs_ioctl called\n");
-    printk("Cmd is : %d\n",cmd);
-    //printk("address is:%d\n",arg);
 
     err=copy_from_user(val, (void *)arg, sizeof(int));
     if(err!=0)
         goto out;
     gs_value=*val;
     sb_info=(struct trfs_sb_info*)sb->s_fs_info;
-    //printk("SB_info accessed\n");
 
-    printk("arg is %lu\n", arg);
-    printk("value is: %d\n",gs_value);
-    printk("value is: %d\n",*val);
     if(cmd == TRFS_SET_FLAG)
     {
-     sb_info->tracefile->bitmap=gs_value;       
+     sb_info->tracefile->bitmap = gs_value;       
     }
     if(cmd == TRFS_GET_FLAG)
     { 
-        //arg=sb_info->tracefile->bitmap;
         err = copy_to_user((void *)arg, (void *)&sb_info->tracefile->bitmap, sizeof(val));
-        if(err!=0)
+        if(err != 0)
             goto out;
     }
-//  copy_from_user(val,arg,sizeof(unsigned long));
 
     lower_file = trfs_lower_file(file);
 
@@ -518,8 +509,6 @@ static int trfs_open(struct inode *inode, struct file *file)
     filename = NULL;
     sample_record = NULL;
 
-    printk("Trfs Open called\n");
-
     sb = file->f_inode->i_sb; 
     trfs_sb_info = (struct trfs_sb_info*)sb->s_fs_info;
     
@@ -555,7 +544,10 @@ static int trfs_open(struct inode *inode, struct file *file)
     }
 
     if(bitmap & OPEN_TR)
-        {
+    {
+        #if DEBUG_SET
+            printk("Tracing OPEN(2) call\n");
+        #endif
         if(filename!=NULL)
         {
 
@@ -565,11 +557,8 @@ static int trfs_open(struct inode *inode, struct file *file)
                 goto out_err;
             }
          
-             temp = kmalloc(BUFFER_SIZE, GFP_KERNEL);
-                            //ar *path = d_path(dentry->dna, temp, PAGE_SIZE);
+            temp = kmalloc(BUFFER_SIZE, GFP_KERNEL);
             path = dentry_path_raw(file->f_path.dentry, temp, BUFFER_SIZE);
-
-            printk("Full Path is %s\n", path);
 
             sample_record->pathname_size = strlen(path);
 
@@ -664,27 +653,23 @@ out_err:
 
 static int trfs_flush(struct file *file, fl_owner_t id)
 {
-    int err = 0;
+    int err = 0, retVal, bitmap;
     struct file *lower_file = NULL;
     struct super_block *sb;
-     char *path;
+    char *path, *temp;
     struct trfs_sb_info *trfs_sb_info;
     struct file *filename;
-    char *temp;
     mm_segment_t oldfs;
-    int retVal,bitmap;
     struct trfs_close_record *sample_record;
 
-    printk("Trfs close called\n");
+    filename = NULL;
+    temp = NULL;
+    sample_record = NULL;
 
-        filename = NULL;
-        temp = NULL;
-        sample_record = NULL;
-
-        sb=file->f_inode->i_sb;
-        trfs_sb_info=(struct trfs_sb_info*)sb->s_fs_info;
-        filename=trfs_sb_info->tracefile->filename;
-        bitmap=trfs_sb_info->tracefile->bitmap;
+    sb=file->f_inode->i_sb;
+    trfs_sb_info=(struct trfs_sb_info*)sb->s_fs_info;
+    filename=trfs_sb_info->tracefile->filename;
+    bitmap=trfs_sb_info->tracefile->bitmap;
 
 
     lower_file = trfs_lower_file(file);
@@ -695,6 +680,9 @@ static int trfs_flush(struct file *file, fl_owner_t id)
 
     if(bitmap & CLOSE_TR)
     {
+        #if DEBUG_SET
+        printk("Tracing CLOSE(2) call\n");
+        #endif
         if(filename!=NULL)
         {
 
@@ -704,10 +692,7 @@ static int trfs_flush(struct file *file, fl_owner_t id)
                 goto out_err;
             }
             temp = kmalloc(BUFFER_SIZE, GFP_KERNEL);
-                            //ar *path = d_path(dentry->dna, temp, PAGE_SIZE);
             path = dentry_path_raw(file->f_path.dentry, temp, BUFFER_SIZE);
-
-            printk("Full Path is %s\n", path);
 
             sample_record->pathname_size = strlen(path);
 
@@ -729,7 +714,6 @@ static int trfs_flush(struct file *file, fl_owner_t id)
 
             //Check if this record size can fit inside the buffer with current offset
             if(trfs_sb_info->tracefile->buffer_offset + sample_record->record_size >= 2*BUFFER_SIZE){
-                printk("count + BUFFER_offset > 2*BUFFER_SIZE...BUFFER overflow in close\n");
                 mutex_lock(&trfs_sb_info->tracefile->record_lock);
 
                 oldfs = get_fs();
@@ -737,7 +721,9 @@ static int trfs_flush(struct file *file, fl_owner_t id)
 
                 //Flush the buffer to file and reset the offset to 0
                 retVal = vfs_write(filename, trfs_sb_info->tracefile->buffer, trfs_sb_info->tracefile->buffer_offset, &trfs_sb_info->tracefile->offset);
+                #if DEBUG_SET
                 printk("number of bytes written %d\n", retVal);
+                #endif
                 trfs_sb_info->tracefile->buffer_offset = 0;
 
                 set_fs(oldfs);
@@ -773,12 +759,8 @@ static int trfs_flush(struct file *file, fl_owner_t id)
 
             }
     }
-        
-        
-
 
 out_err:
-
     if(sample_record){
         if(sample_record->pathname)
             kfree(sample_record->pathname);
