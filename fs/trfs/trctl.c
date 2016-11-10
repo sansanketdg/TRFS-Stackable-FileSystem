@@ -29,6 +29,20 @@ int main(int argc,char *argv[])
         printf("\n Invalid Path");
     }
 
+    if(argc==2)
+    {
+      fd = open(argv[1], O_RDONLY);
+      if(fd<0)
+      {
+        printf("\n Invalid Path");
+      }
+      retVal = ioctl(fd,TRFS_GET_FLAG,&actual_bitmap);
+      printf("The present bitmap value is 0x%x\n", actual_bitmap);
+  
+      close(fd);
+
+    }
+    
     for(i=1;i<argc-1;i++)
     {
       option=argv[i];
