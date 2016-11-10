@@ -7,8 +7,6 @@
 #include <string.h>
 #include "record.h"
 
-#define EXTRA_CREDIT 0
-
 int main(int argc,char *argv[])
 {
   int fd;
