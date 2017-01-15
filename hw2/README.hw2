@@ -96,3 +96,11 @@ DELIVERABLES:
 --hw2/treplay.c and hw2/trctl.c
 --Makefile at fs/trfs and hw2 to complile the codes.
 
+REFERENCES:
+-------------------------------------------------------------------------------
+
+ioctl - http://lxr.free-electrons.com/source/fs/ioctl.c
+kthread - 
+linux source code -
+
+
